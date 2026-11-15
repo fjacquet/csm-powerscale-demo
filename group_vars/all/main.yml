@@ -1,0 +1,99 @@
+---
+# ---- Versions (guide v5: CSM 1.18.2) ----
+chart_version: "1.11.2" # container-storage-modules (csi-isilon 2.18.1, csm-replication 1.16.0)
+csm_tools_version: v1.18.2 # dellctl + repctl release
+csm_version: v1.18.2 # OpenShift: ContainerStorageModule spec.version
+helm_chart_repo: https://dell.github.io/helm-charts
+helm_version: v4.3.0 # pinned; the installer script is fetched from this tag, not from main
+helm_install_script: "https://raw.githubusercontent.com/helm/helm/{{ helm_version }}/scripts/get-helm-4"
+# Optional integrity checks, e.g. "sha256:<hex>" or "sha256:https://.../checksums.txt". Empty = not verified.
+dellctl_checksum: ""
+repctl_checksum: ""
+yq_checksum: ""
+csm_download_base: "https://github.com/dell/csm/releases/download/{{ csm_tools_version }}"
+yq_url: https://github.com/mikefarah/yq/releases/download/v4.47.1/yq_linux_amd64
+
+# ---- Section 01: environment ----
+csi_ns: isilon
+isi_path: /ifs/data/csi
+ps_user: csi-user
+rpo: Five_Minutes
+skip_cert_validation: true # lab only; set false and provide certs for production
+app_namespaces: [app-a, app-b, app-c]
+# Narrow any DR playbook to some namespaces: -e '{"only_namespaces": ["app-b"]}'
+dr_namespaces: "{{ only_namespaces | default(app_namespaces) }}"
+
+# ---- Paths on the management VM ----
+base_dir: "{{ ansible_facts['env']['HOME'] }}"
+kube_dir: "{{ base_dir }}/.kube"
+dr_dir: "{{ base_dir }}/dr"
+env_file: "{{ base_dir }}/csm-env.sh"
+gen_values: powerscale-values-override.yaml
+gen_manifest: csm-powerscale-install.yaml
+custom_values: "custom-{{ gen_values }}"
+custom_manifest: "custom-{{ gen_manifest }}"
+
+# ---- Design choices (guide section 03) ----
+# 03c: false = option B (default; repctl create pvc at failover). true = option A (fastest RTO).
+allow_pvc_creation_on_target: false
+# 03d: Retain keeps replica PV/RG when the source is deleted. Use Retain for production DR.
+csm_retention_policy: Retain
+controller_count: 1 # chart default 2; single-node K3s needs 1
+
+# ---- Items the guide tags "verify": one named variable each, confirm on first run ----
+rg_annotation_key: replication.storage.dell.com/replicationGroupName # PVC annotation holding the RG name
+sc_param_prefix: replication.storage.dell.com
+retention_pv_param: "{{ sc_param_prefix }}/remotePVRetentionPolicy"
+retention_rg_param: "{{ sc_param_prefix }}/remoteRGRetentionPolicy"
+# Option A only: yaml path in the custom values file for the controller's PVC-creation-on-target flag.
+# Find it: helm show values dell/container-storage-modules --version <v> | grep -n -i -B3 -A3 pvccreation
+option_a_values_path: ""
+repctl_create_pvc_args: "--clusters secondary" # guide value; official repctl docs show create pvc without --clusters
+repctl_state_failedover: FAILEDOVER # text printed by `repctl get rg` for a failed-over RG
+dellctl_password_prompt: "Enter password for array endpoint {endpoint}" # prompt text from guide K4 output
+
+# ---- DR demo workload ----
+demo_writer_deploy: writer
+demo_data_check: true # capture/verify last write per namespace (D6)
+demo_image: busybox:1.36
+demo_pvc_size: 5Gi
+
+# ---- Wiki.js demo workload (replaces the busybox writer in these namespaces; others keep the writer) ----
+demo_wiki_namespaces: [app-a] # [] = busybox writer everywhere, no MetalLB, no wiki
+demo_wiki_image: ghcr.io/requarks/wiki:2
+demo_wiki_db_image: quay.io/sclorg/postgresql-16-c9s:latest # verify: tag, registry and POSTGRESQL_* variables in the image README
+demo_wiki_db_user: wiki
+demo_wiki_db_name: wiki
+demo_wiki_db_password: "{{ vault_wiki_db_password | default('') }}" # one value for both sites: the password lives in the replicated data
+demo_wiki_admin_email: admin@example.com
+demo_wiki_admin_password: "{{ vault_wiki_admin_password | default('') }}"
+demo_wiki_bootstrap: true # finalize the Wiki.js setup wizard; false = do it by hand once on the primary
+demo_wiki_metallb_manifest_url: https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/manifests/metallb-native.yaml # verify version
+
+# ---- OpenShift track (per-cluster API names and O3a IPs live in inventory/openshift/group_vars) ----
+ocp_operator_channel: stable
+ocp_operator_namespace: openshift-operators
+ocp_inject_use_sa: false
+
+# ---- PowerScale API access for the dellemc.powerscale modules (run from the management VM) ----
+# These modules use HTTP Basic auth. The guide's arrays have auth_basic = false (session login only): preflight
+# fails with a clear message until Basic is enabled for the API user. Use an admin user for ps_configure.
+ps_admin_user: "{{ ps_user }}"
+# api = dellemc.powerscale modules (needs Basic auth); ssh = raw isi over SSH (works with auth_basic = false)
+ps_access: api
+ps_conn:
+  ps1:
+    onefs_host: "{{ arrays.ps1.endpoint }}"
+    port_no: "8080"
+    verify_ssl: "{{ not (skip_cert_validation | bool) }}"
+    api_user: "{{ ps_admin_user }}"
+    api_password: "{{ (vault_ps_admin_passwords | default(vault_ps_passwords | default({}))).ps1 | default('') }}"
+  ps2:
+    onefs_host: "{{ arrays.ps2.endpoint }}"
+    port_no: "8080"
+    verify_ssl: "{{ not (skip_cert_validation | bool) }}"
+    api_user: "{{ ps_admin_user }}"
+    api_password: "{{ (vault_ps_admin_passwords | default(vault_ps_passwords | default({}))).ps2 | default('') }}"
+
+# ---- Secrets: ansible-vault. See group_vars/all/vault.yml.example ----
+# vault_ps_passwords: { ps1: "...", ps2: "..." }

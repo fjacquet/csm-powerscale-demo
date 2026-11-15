@@ -1,0 +1,16 @@
+---
+# D3c: replicate back from the current source. -e dr_new_source=secondary (default) | primary
+- name: Reprotect
+  hosts: mgmt
+  gather_facts: true
+  pre_tasks:
+    - name: Require explicit confirmation
+      ansible.builtin.assert:
+        that: confirm_reprotect | default('no') == 'yes'
+        fail_msg: "Re-run with -e confirm_reprotect=yes. After an unplanned failover run recover_primary.yml first."
+        quiet: true
+  tasks:
+    - name: Reprotect each RG
+      ansible.builtin.import_role:
+        name: dr_ops
+        tasks_from: reprotect.yml

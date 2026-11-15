@@ -1,0 +1,41 @@
+---
+# The three PPDM controller ConfigMaps (namespace powerprotect of the protected cluster). Changing them restarts powerprotect-controller,
+# which affects every workload PPDM protects on that cluster: it needs -e confirm_ppdm_changes=yes. Without it the manifest is only rendered.
+- name: Directory for the rendered manifests
+  ansible.builtin.file:
+    path: "{{ dr_dir }}/writable"
+    state: directory
+    mode: "0700"
+
+- name: Render the PPDM ConfigMaps
+  ansible.builtin.template:
+    src: configmaps.yaml.j2
+    dest: "{{ dr_dir }}/writable/ppdm-configmaps.yaml"
+    mode: "0600"
+
+- name: Show the manual command when the change is not confirmed
+  ansible.builtin.debug:
+    msg: >-
+      Not applied (add -e confirm_ppdm_changes=yes). To do it by hand: kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }}
+      apply -f {{ dr_dir }}/writable/ppdm-configmaps.yaml && kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }}
+      -n powerprotect rollout restart deployment powerprotect-controller
+  when: confirm_ppdm_changes | default('no') != 'yes'
+
+- name: Apply the ConfigMaps and restart the PPDM controller
+  when: confirm_ppdm_changes | default('no') == 'yes'
+  block:
+    - name: Apply the PPDM ConfigMaps
+      ansible.builtin.command: >-
+        kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} apply -f {{ dr_dir }}/writable/ppdm-configmaps.yaml
+      register: demo_wsnap_cm_applied
+      changed_when: "'created' in demo_wsnap_cm_applied.stdout or 'configured' in demo_wsnap_cm_applied.stdout"
+
+    - name: Restart the PPDM controller so it reads the ConfigMaps
+      ansible.builtin.command: >-
+        kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n powerprotect rollout restart deployment powerprotect-controller
+      changed_when: true
+
+    - name: Wait for the PPDM controller
+      ansible.builtin.command: >-
+        kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n powerprotect rollout status deployment powerprotect-controller --timeout=300s
+      changed_when: false

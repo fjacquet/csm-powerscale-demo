@@ -1,0 +1,9 @@
+---
+- name: Converge
+  hosts: localhost
+  gather_facts: true
+  vars_files: [fixtures/vars.yml]
+  tasks:
+    - name: Include role common
+      ansible.builtin.include_role:
+        name: common

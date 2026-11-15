@@ -1,0 +1,46 @@
+---
+# ps_access=ssh: SyncIQ smoke test with this array as source (ps_prep_array), raw `isi` over SSH.
+- name: "SyncIQ smoke test from one array over SSH"
+  vars:
+    ps_prep_peer: "{{ arrays.keys() | reject('eq', ps_prep_array) | first }}"
+    ps_prep_pol: "synciq-test-{{ ps_prep_array }}"
+    ps_prep_src: "/ifs/data/synciq-test-{{ ps_prep_array }}"
+    ps_prep_tgt: "/ifs/data/synciq-test-{{ ps_prep_array }}-target"
+  block:
+    - name: Create the source folder and policy (non-interactive confirm; check the prompt on your OneFS version)
+      ansible.builtin.raw: >-
+        mkdir -p {{ ps_prep_src }} && date > {{ ps_prep_src }}/hello.txt &&
+        echo 'confirm create policy' | isi sync policies create {{ ps_prep_pol }} sync {{ ps_prep_src }}
+        {{ arrays[ps_prep_peer].endpoint }} {{ ps_prep_tgt }}
+      delegate_to: "{{ ps_prep_array }}"
+      changed_when: true
+
+    - name: Start the job
+      ansible.builtin.raw: "isi sync jobs start {{ ps_prep_pol }}"
+      delegate_to: "{{ ps_prep_array }}"
+      changed_when: true
+
+    - name: Wait for a finished report
+      ansible.builtin.raw: isi sync reports list
+      delegate_to: "{{ ps_prep_array }}"
+      register: ps_prep_reports
+      until: ps_prep_reports.stdout is search('finished|succeeded|Finished', multiline=true)
+      retries: 12
+      delay: 10
+      changed_when: false
+
+    - name: Confirm the file arrived on the peer
+      ansible.builtin.raw: "cat {{ ps_prep_tgt }}/hello.txt"
+      delegate_to: "{{ ps_prep_peer }}"
+      changed_when: false
+  always:
+    - name: Clean up the source side
+      ansible.builtin.raw: "isi sync policies delete {{ ps_prep_pol }} --force; rm -rf {{ ps_prep_src }}"
+      delegate_to: "{{ ps_prep_array }}"
+      changed_when: true
+      failed_when: false
+    - name: Release and remove the target side
+      ansible.builtin.raw: "isi sync target break {{ ps_prep_pol }} --force; rm -rf {{ ps_prep_tgt }}"
+      delegate_to: "{{ ps_prep_peer }}"
+      changed_when: true
+      failed_when: false

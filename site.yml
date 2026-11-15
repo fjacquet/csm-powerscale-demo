@@ -1,0 +1,39 @@
+---
+# Full build: foundation -> platform track -> protect namespaces (D1, D1a, D2).
+# Never performs a failover: those live in playbooks/ and need an explicit confirm variable.
+- name: Section 02 - PowerScale (assert-only; --tags ps_configure / synciq_smoke change the arrays)
+  hosts: mgmt
+  gather_facts: false
+  roles:
+    - ps_prep
+
+- name: K1 - K3s node preparation
+  hosts: k3s
+  gather_facts: false
+  tasks:
+    - name: Node prep
+      ansible.builtin.include_role:
+        name: k3s_nodes
+        apply:
+          tags: [k1]
+      when: platform == 'k3s'
+      tags: [k1]
+
+- name: Foundation, install track and namespace protection
+  hosts: mgmt
+  gather_facts: true
+  vars:
+    common_require_passwords: true
+  roles:
+    - role: common
+      tags: [foundation]
+    - role: tools
+      tags: [tools]
+    - role: csm_k3s
+      when: platform == 'k3s'
+    - role: csm_ocp
+      when: platform == 'openshift'
+    - role: demo_wiki
+      tags: [demo_wiki]
+    - role: dr_protect
+      tags: [protect]

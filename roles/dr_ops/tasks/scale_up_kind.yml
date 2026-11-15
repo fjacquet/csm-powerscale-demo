@@ -1,0 +1,23 @@
+---
+# Needs: dr_site, ns. Replica counts come from the standby annotation written by dr_protect (default 1).
+- name: "Read the standby workloads of this kind in namespace {{ ns }}"
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ sites.secondary.kubeconfig }}"
+    api_version: apps/v1
+    kind: "{{ dr_ops_kind }}"
+    namespace: "{{ ns }}"
+  register: dr_ops_standby
+
+- name: "Scale up to the recorded replica count in namespace {{ ns }}"
+  kubernetes.core.k8s_scale:
+    kubeconfig: "{{ sites[dr_site].kubeconfig }}"
+    api_version: apps/v1
+    kind: "{{ dr_ops_kind }}"
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ ns }}"
+    replicas: "{{ (item.metadata.annotations | default({}))['csm-demo/primary-replicas'] | default(1) | int }}"
+    wait: true
+    wait_timeout: 300
+  loop: "{{ dr_ops_standby.resources }}"
+  loop_control:
+    label: "{{ ns }}/{{ item.metadata.name }}"

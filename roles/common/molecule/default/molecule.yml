@@ -1,0 +1,23 @@
+---
+# Delegated, localhost-only scenario: the common role is pure validation and file rendering (no containers needed).
+ansible:
+  executor:
+    args:
+      ansible_playbook:
+        - --inventory=${MOLECULE_SCENARIO_DIRECTORY}/inventory/
+  cfg:
+    defaults:
+      host_key_checking: false
+      roles_path: ${MOLECULE_PROJECT_DIRECTORY}/..
+  env:
+    ANSIBLE_FORCE_COLOR: "true"
+
+scenario:
+  test_sequence:
+    - syntax
+    - create
+    - prepare
+    - converge
+    - idempotence
+    - verify
+    - destroy

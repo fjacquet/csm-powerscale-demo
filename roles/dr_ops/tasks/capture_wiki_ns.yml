@@ -1,0 +1,29 @@
+---
+# Wiki.js namespaces: same contract as capture_last_write.yml (value stored in last-<ns>.txt, taken BEFORE the writers stop).
+# The marker is a row written into PostgreSQL; it only reaches the secondary through the replicated volume.
+- name: Remove a stale last-write file - {{ ns }}
+  ansible.builtin.file:
+    path: "{{ dr_dir }}/last-{{ ns }}.txt"
+    state: absent
+
+- name: Write a marker row on the active site - {{ ns }}
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ sites[dr_site].kubeconfig }} -n {{ ns }} exec deploy/postgres --
+    psql -qtA -U {{ demo_wiki_db_user }} -d {{ demo_wiki_db_name }}
+    -c "CREATE TABLE IF NOT EXISTS dr_marker(ts text)"
+    -c "INSERT INTO dr_marker VALUES (now()::text) RETURNING ts"
+  register: dr_ops_wiki_marker
+  changed_when: false
+  failed_when: false
+
+- name: Store it - {{ ns }}
+  ansible.builtin.copy:
+    content: "{{ dr_ops_wiki_marker.stdout_lines | last }}\n"
+    dest: "{{ dr_dir }}/last-{{ ns }}.txt"
+    mode: "0644"
+  when: dr_ops_wiki_marker.rc == 0 and dr_ops_wiki_marker.stdout_lines | length > 0
+
+- name: Warn when no marker could be written - {{ ns }}
+  ansible.builtin.debug:
+    msg: "No marker row written for {{ ns }} (PostgreSQL not running?). The D6 data check will fail for it."
+  when: dr_ops_wiki_marker.rc != 0 or dr_ops_wiki_marker.stdout_lines | length == 0

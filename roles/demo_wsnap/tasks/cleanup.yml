@@ -1,0 +1,50 @@
+---
+# Removes the CSM-layer objects (reader pod, clone PVC, snapshots) from the protected namespace. Needs -e confirm_writable_cleanup=yes.
+# StorageClass B is kept unless -e demo_wsnap_remove_sc=yes. Nothing else in the namespace is touched.
+- name: Require explicit confirmation
+  ansible.builtin.assert:
+    that: confirm_writable_cleanup | default('no') == 'yes'
+    fail_msg: "Deletes the demo clone objects in {{ demo_wsnap_protected_ns }} on the primary cluster. Re-run with -e confirm_writable_cleanup=yes."
+    quiet: true
+
+- name: Find the PV of the clone (absent when the clone was never created)
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }} get pvc demo-ws-clone -o jsonpath={.spec.volumeName}
+  register: demo_wsnap_cleanup_clone_pv
+  changed_when: false
+  failed_when: false
+
+- name: Delete the reader, the clone and the snapshots in dependency order
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }}
+    delete {{ item }} --ignore-not-found --wait=true --timeout=180s
+  loop: [pod/demo-ws-reader, pvc/demo-ws-clone, volumesnapshot/demo-ws-snap, volumesnapshot/demo-ws-probe]
+  changed_when: true
+
+- name: Wait until the clone PV is gone (the writable snapshot goes with its PV)
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} wait --for=delete pv/{{ demo_wsnap_cleanup_clone_pv.stdout }} --timeout=180s
+  changed_when: false
+  when: demo_wsnap_cleanup_clone_pv.rc == 0 and demo_wsnap_cleanup_clone_pv.stdout | length > 0
+
+- name: Delete StorageClass B on request
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} delete storageclass {{ demo_wsnap_sc_name }} --ignore-not-found
+  changed_when: true
+  when: demo_wsnap_remove_sc == 'yes'
+
+- name: Verify no writable snapshot of the protected volume remains
+  block:
+    - name: Find the OneFS directory of the protected volume
+      ansible.builtin.include_tasks: protected_path.yml
+
+    - name: List the writable snapshots
+      ansible.builtin.include_tasks: array_list.yml
+      vars:
+        demo_wsnap_baseline: []
+
+    - name: Assert none is left
+      ansible.builtin.assert:
+        that: demo_wsnap_new_entries | length == 0
+        fail_msg: "Writable snapshots of {{ demo_wsnap_watch_paths | join(', ') }} remain on the array: {{ demo_wsnap_new_entries }}. Delete them with isi snapshot writable delete."
+        quiet: true

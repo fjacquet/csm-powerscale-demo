@@ -1,0 +1,183 @@
+---
+# K5b: split by object NAME (v5 fix), every object must land in exactly one file.
+- name: Split each manifest into numbered files (guide K5b)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    umask 077
+    trap 'rm -f 06_replication.yaml' ERR
+    M={{ custom_manifest }}
+    yq 'select(.kind == "CustomResourceDefinition")' $M > 01_snapshot-crds.yaml
+    yq 'select(.kind == "ServiceAccount" or .kind == "ClusterRole" or .kind == "ClusterRoleBinding"
+               or .kind == "Role" or .kind == "RoleBinding" or .kind == "Deployment")' $M > 02_snapshot-controller.yaml
+    yq 'select(.kind == "Secret" and (.metadata.name == "isilon-creds" or (.metadata.name | test("^isilon-certs"))))' $M > 03_driver-secrets.yaml
+    yq 'select(.kind == "VolumeSnapshotClass")' $M > 04_volumesnapshotclass.yaml
+    yq 'select(.kind == "StorageClass")' $M > 05_storageclass.yaml
+    yq 'select((.kind == "Secret" and .metadata.name != "isilon-creds" and (.metadata.name | test("^isilon-certs") | not)) or .kind == "ConfigMap")' $M > 06_replication.yaml
+    diff <(yq -N '.kind' $M | sort) <(yq -N '.kind' 0?_*.yaml | sort)
+  args:
+    chdir: "{{ site.install_dir }}"
+    executable: /bin/bash
+    creates: "{{ site.install_dir }}/06_replication.yaml"
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"
+  no_log: true # the manifest holds array credentials
+
+# 03d: StorageClass parameters are immutable once applied, so set retention BEFORE the first apply.
+- name: Set remote PV/RG retention on the replication StorageClass
+  ansible.builtin.shell: |
+    set -euo pipefail
+    before=$(sha256sum 05_storageclass.yaml)
+    PV='{{ retention_pv_param }}' RG='{{ retention_rg_param }}' POL='{{ csm_retention_policy }}' \
+    yq -i '(select(.parameters["replication.storage.dell.com/isReplicationEnabled"] == "true") | .parameters[strenv(PV)]) = strenv(POL) |
+           (select(.parameters["replication.storage.dell.com/isReplicationEnabled"] == "true") | .parameters[strenv(RG)]) = strenv(POL)' 05_storageclass.yaml
+    [ "$before" = "$(sha256sum 05_storageclass.yaml)" ] || echo CHANGED
+  args:
+    chdir: "{{ site.install_dir }}"
+    executable: /bin/bash
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"
+  register: csm_k3s_retention
+  changed_when: "'CHANGED' in csm_k3s_retention.stdout"
+
+- name: Review the replication StorageClass parameters
+  ansible.builtin.shell: |
+    set -euo pipefail
+    yq 'select(.parameters["replication.storage.dell.com/isReplicationEnabled"] == "true") | .metadata.name + "  " + (.parameters | to_entries | map(.key + "=" + .value) | join("  "))' 05_storageclass.yaml
+  args:
+    chdir: "{{ site.install_dir }}"
+    executable: /bin/bash
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"
+  register: csm_k3s_sc_review
+  changed_when: false
+
+- name: Assert prefix, remote cluster and ignoreNamespaces in the replication StorageClass
+  ansible.builtin.assert:
+    that:
+      - "'volumeGroupPrefix=' ~ item.site.vg_prefix in item.stdout"
+      - "'remoteClusterID=' ~ item.site.peer in item.stdout"
+      - "'ignoreNamespaces=false' in item.stdout"
+      - "'rpo=' ~ rpo in item.stdout"
+    fail_msg: "Replication StorageClass for {{ item.site.id }} differs from the design (section 03):\n{{ item.stdout }}"
+    quiet: true
+  loop: "{{ csm_k3s_sc_review.results }}"
+  loop_control:
+    label: "{{ item.site.id }}"
+
+# K5d: values file tuning
+- name: Single-node controller count
+  ansible.builtin.replace:
+    path: "{{ site.install_dir }}/{{ custom_values }}"
+    regexp: 'controllerCount: \d+'
+    replace: "controllerCount: {{ controller_count }}"
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"
+
+- name: Option A - let the controller create PVCs on the failover cluster
+  ansible.builtin.command: "yq -i '.{{ option_a_values_path }} = true' {{ custom_values }}"
+  args:
+    chdir: "{{ site.install_dir }}"
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"
+  when: allow_pvc_creation_on_target | bool
+  changed_when: true
+
+- name: Read the values files
+  ansible.builtin.slurp:
+    src: "{{ site.install_dir }}/{{ custom_values }}"
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"
+  register: csm_k3s_values
+  no_log: true
+
+- name: Assert the values (session login, replication on, controller count)
+  ansible.builtin.assert:
+    that:
+      - _values['csi-isilon'].isiAuthType | int == 1
+      - _values['csi-isilon'].controller.replication.enabled | bool
+      - _values['csm-replication'].enabled | bool
+      - _values['csi-isilon'].controller.controllerCount | int == controller_count | int
+    fail_msg: "{{ item.site.install_dir }}/{{ custom_values }} does not match the expected shape (guide K5d)."
+    quiet: true
+  loop: "{{ csm_k3s_values.results }}"
+  loop_control:
+    label: "{{ item.site.id }}"
+  vars:
+    _values: "{{ item.content | b64decode | from_yaml }}"
+  no_log: true
+
+# K5c: apply prerequisites 01-05
+- name: Apply snapshot CRDs and wait until established
+  kubernetes.core.k8s:
+    kubeconfig: "{{ site.kubeconfig }}"
+    src: "{{ site.install_dir }}/01_snapshot-crds.yaml"
+    state: present
+    wait: true
+    wait_condition: { type: Established, status: "True" }
+    wait_timeout: 60
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"
+
+- name: Apply the snapshot controller
+  kubernetes.core.k8s:
+    kubeconfig: "{{ site.kubeconfig }}"
+    src: "{{ site.install_dir }}/02_snapshot-controller.yaml"
+    state: present
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"
+
+- name: Create the driver namespace
+  kubernetes.core.k8s:
+    kubeconfig: "{{ site.kubeconfig }}"
+    kind: Namespace
+    name: "{{ csi_ns }}"
+    state: present
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"
+
+- name: Apply driver secrets and VolumeSnapshotClass (each cluster gets ONLY its own folder)
+  kubernetes.core.k8s:
+    kubeconfig: "{{ item.0.kubeconfig }}"
+    src: "{{ item.0.install_dir }}/{{ item.1 }}"
+    state: present
+  loop: "{{ site_list | product(['03_driver-secrets.yaml', '04_volumesnapshotclass.yaml']) | list }}"
+  loop_control:
+    label: "{{ item.0.id }}: {{ item.1 }}"
+  no_log: true # 03 carries the array credentials
+
+- name: Apply StorageClasses
+  block:
+    - name: Apply 05_storageclass.yaml on both clusters
+      kubernetes.core.k8s:
+        kubeconfig: "{{ site.kubeconfig }}"
+        src: "{{ site.install_dir }}/05_storageclass.yaml"
+        state: present
+      loop: "{{ site_list }}"
+      loop_control:
+        loop_var: site
+        label: "{{ site.id }}"
+  rescue:
+    - name: Explain the immutable StorageClass failure
+      ansible.builtin.fail:
+        msg: >-
+          StorageClass apply failed. Parameters are immutable once applied. If you changed prefix, retention or remote
+          settings after a first install: delete the replication StorageClass on that cluster, re-provision test volumes,
+          and re-run. Original error: {{ ansible_failed_result.msg | default('n/a') }}

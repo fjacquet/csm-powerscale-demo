@@ -1,0 +1,33 @@
+---
+# Needs: ns, demo_wiki_site. Sets demo_wiki_url and prints it. The load balancer address can lag: retry.
+- name: Read the Wiki.js address (K3s load balancer) - {{ demo_wiki_site.id }}
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wiki_site.kubeconfig }} -n {{ ns }} get svc wiki -o jsonpath={.status.loadBalancer.ingress[0].ip}
+  register: demo_wiki_lb
+  changed_when: false
+  until: demo_wiki_lb.stdout | length > 0
+  retries: 30
+  delay: 5
+  ignore_errors: true # informational: a missing address must not fail a finished failover
+  when: platform == 'k3s'
+
+- name: Read the Wiki.js host (OpenShift route) - {{ demo_wiki_site.id }}
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wiki_site.kubeconfig }} -n {{ ns }} get route wiki -o jsonpath={.spec.host}
+  register: demo_wiki_route
+  changed_when: false
+  until: demo_wiki_route.stdout | length > 0
+  retries: 30
+  delay: 5
+  ignore_errors: true
+  when: platform == 'openshift'
+
+- name: Keep the URL
+  ansible.builtin.set_fact:
+    demo_wiki_url: >-
+      {{ ('http://' ~ demo_wiki_lb.stdout if demo_wiki_lb.stdout | default('') | length > 0 else 'pending: no address yet') if platform == 'k3s'
+         else ('https://' ~ demo_wiki_route.stdout if demo_wiki_route.stdout | default('') | length > 0 else 'pending: no route host yet') }}
+
+- name: Show the URL - {{ demo_wiki_site.id }}
+  ansible.builtin.debug:
+    msg: "Wiki.js ({{ demo_wiki_site.id }}): {{ demo_wiki_url }}"

@@ -1,0 +1,15 @@
+---
+# Needs: dr_site (primary|secondary), ns. PowerScale failover does NOT block writes on the source: stop writers first.
+- name: "Scale workloads to 0 in namespace {{ ns }}"
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ sites[dr_site].kubeconfig }} -n {{ ns }} scale deploy,statefulset --all --replicas=0
+  register: dr_ops_scale
+  changed_when: "'scaled' in dr_ops_scale.stdout"
+  failed_when: dr_ops_scale.rc != 0 and 'no objects passed to scale' not in dr_ops_scale.stderr
+
+- name: "Wait until the pods are gone in namespace {{ ns }}"
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ sites[dr_site].kubeconfig }} -n {{ ns }} wait --for=delete pod --all --timeout=300s
+  register: dr_ops_wait
+  changed_when: false
+  failed_when: dr_ops_wait.rc != 0 and 'no matching resources found' not in dr_ops_wait.stderr

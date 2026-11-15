@@ -1,0 +1,10 @@
+---
+# Delegated driver: nothing to create (localhost).
+- name: Create
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Note that no infrastructure is needed
+      ansible.builtin.debug:
+        msg: common is tested on localhost with fixture kubeconfigs
+        verbosity: 1

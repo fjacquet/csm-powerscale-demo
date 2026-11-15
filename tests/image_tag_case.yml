@@ -1,0 +1,12 @@
+---
+# One case of the image tag extraction (item: {image, tag}); imported in a loop by test_writable_snap_discover.yml.
+- name: Extract the tag
+  ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/demo_wsnap/tasks/image_tag.yml"
+  vars:
+    demo_wsnap_image: "{{ item.image }}"
+
+- name: Check the tag
+  ansible.builtin.assert:
+    that: demo_wsnap_image_tag == item.tag
+    fail_msg: "{{ item.image }} gave '{{ demo_wsnap_image_tag }}', expected '{{ item.tag }}'"
+    quiet: true

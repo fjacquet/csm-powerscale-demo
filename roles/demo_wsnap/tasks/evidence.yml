@@ -1,0 +1,64 @@
+---
+# Polls the cluster and the array until the PPDM job ends (or the writable snapshot appeared and disappeared again, or the timeout),
+# then writes the verdict and a Mermaid timeline of what really happened. With the REST flag off, start the backup in the PPDM UI
+# when this phase prints "Waiting".
+- name: Require the REST job to be started in the same run
+  ansible.builtin.assert:
+    that: not (demo_wsnap_ppdm_automate | bool) or demo_wsnap_job_start is defined
+    fail_msg: >-
+      With demo_wsnap_ppdm_automate the job is started by --tags ppdm and followed by --tags evidence IN THE SAME RUN
+      (--tags ppdm,evidence): the token, the activity id and the baseline taken before the start are not kept between runs.
+    quiet: true
+
+- name: Take the watched path and the baseline when no REST job did it
+  ansible.builtin.include_tasks: evidence_prepare.yml
+  when: demo_wsnap_job_start is not defined
+
+- name: List the snapshots and PVCs that exist before the job (they are not events)
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} get volumesnapshot,pvc -A -o name
+  register: demo_wsnap_objects_before
+  changed_when: false
+
+- name: Reset the evidence state
+  ansible.builtin.set_fact:
+    demo_wsnap_seen: []
+    demo_wsnap_events: []
+    demo_wsnap_known_objects: "{{ demo_wsnap_objects_before.stdout_lines }}"
+    demo_wsnap_done: false
+    demo_wsnap_last_state: ""
+
+- name: Tell the presenter
+  ansible.builtin.debug:
+    msg: >-
+      Waiting up to {{ demo_wsnap_evidence_timeout }} s. Watching {{ demo_wsnap_watch_paths | join(', ') }}.
+      {{ '' if demo_wsnap_ppdm_automate | bool else 'Start the PPDM backup of the Wiki.js namespace now.' }}
+
+- name: Poll until done or timeout
+  ansible.builtin.include_tasks: evidence_tick.yml
+  loop: "{{ range(0, (demo_wsnap_evidence_timeout | int) // (demo_wsnap_poll_seconds | int)) | list }}"
+  loop_control:
+    label: tick {{ item }}
+
+- name: Decide the verdict
+  ansible.builtin.include_tasks: evidence_verdict.yml
+
+- name: Write the Mermaid timeline
+  ansible.builtin.template:
+    src: timeline.mmd.j2
+    dest: "{{ dr_dir }}/writable/timeline.mmd"
+    mode: "0600"
+
+- name: Warn when PPDM reports a slow temporary-volume deletion
+  ansible.builtin.debug:
+    msg: "PPDM reported 'might not be deleted': check OneFS for leftover writable snapshot directories."
+  when: demo_wsnap_ppdm_automate | bool and (demo_wsnap_activity | default({}) | string) is search('might not be deleted')
+
+- name: Report the verdict
+  ansible.builtin.debug:
+    msg: >-
+      {{ demo_wsnap_verdict }} - timeline: {{ dr_dir }}/writable/timeline.mmd.
+      {{ ('PPDM activity: ' ~ (demo_wsnap_activity | string)) if demo_wsnap_ppdm_automate | bool and demo_wsnap_activity is defined else '' }}
+      {{ ('New writable snapshots on other paths (check watch_path.yml against the PV volumeHandle): '
+          ~ (demo_wsnap_unmatched | map(attribute='src_path') | unique | list | join(', ')))
+         if demo_wsnap_verdict == 'NOT OBSERVED' and demo_wsnap_unmatched | default([]) | length > 0 else '' }}

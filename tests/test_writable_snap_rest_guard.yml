@@ -1,0 +1,28 @@
+---
+# REST automation with missing inputs must fail before any request, name the missing inputs, and never print the password.
+- name: PPDM REST guard
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    demo_wsnap_ppdm_automate: true
+    demo_wsnap_ppdm_host: ""
+    demo_wsnap_ppdm_policy: ""
+    demo_wsnap_ppdm_user: admin
+    demo_wsnap_ppdm_password: S3cret-pw-do-not-print
+  tasks:
+    - name: Run the REST tasks with an empty host and policy
+      block:
+        - name: Include the REST tasks
+          ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/demo_wsnap/tasks/ppdm_api.yml"
+        - name: Must not get here
+          ansible.builtin.fail:
+            msg: the REST tasks ran without a host
+      rescue:
+        - name: The failure names the missing inputs and does not contain the password
+          ansible.builtin.assert:
+            that:
+              - "'demo_wsnap_ppdm_host' in ansible_failed_result.msg"
+              - "'S3cret-pw-do-not-print' not in (ansible_failed_result | string)"
+              - ansible_failed_result.msg is not search('hidden')
+            quiet: true

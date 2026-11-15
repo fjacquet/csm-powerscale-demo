@@ -1,0 +1,7 @@
+sequenceDiagram
+    participant PPDM
+    participant Cluster
+    participant Array
+{% for e in demo_wsnap_events %}
+    Note over {{ {'ppdm': 'PPDM', 'cluster': 'Cluster', 'array': 'Array'}[e.source] }}: {{ e.t }} {{ e.text | replace(';', ',') | replace('#', '') }}
+{% endfor %}

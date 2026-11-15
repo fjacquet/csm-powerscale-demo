@@ -1,0 +1,9 @@
+---
+# Needs: rg, dr_expect (text printed by `repctl get rg`).
+- name: "Wait for the RG state shown by repctl get rg - {{ dr_expect }}"
+  ansible.builtin.command: repctl get rg
+  register: dr_ops_rg_get
+  until: dr_ops_rg_get.stdout_lines | select('search', rg) | select('search', dr_expect) | list | length >= 1
+  retries: 18
+  delay: 10
+  changed_when: false

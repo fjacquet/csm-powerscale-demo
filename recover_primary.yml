@@ -1,0 +1,16 @@
+---
+# D4a: primary site is back after an unplanned failover. Run BEFORE reprotect or failback.
+- name: Make the recovered primary safe
+  hosts: mgmt
+  gather_facts: true
+  pre_tasks:
+    - name: Require explicit confirmation
+      ansible.builtin.assert:
+        that: confirm_recover | default('no') == 'yes'
+        fail_msg: "Re-run with -e confirm_recover=yes (pause primary GitOps first)."
+        quiet: true
+  tasks:
+    - name: D4a - scale primary to 0 and disable the ps1 SyncIQ policies
+      ansible.builtin.import_role:
+        name: dr_ops
+        tasks_from: recover_primary.yml

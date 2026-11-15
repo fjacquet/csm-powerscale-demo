@@ -1,0 +1,7 @@
+---
+# Needs: dr_site, ns. Deployments and StatefulSets, replica counts from the standby annotation (default 1).
+- name: Scale up each workload kind - {{ ns }}
+  ansible.builtin.include_tasks: scale_up_kind.yml
+  loop: [Deployment, StatefulSet]
+  loop_control:
+    loop_var: dr_ops_kind

@@ -1,0 +1,9 @@
+---
+- name: Create standby workloads of each kind - {{ ns }}
+  ansible.builtin.include_tasks:
+    file: standby_kind.yml
+    apply:
+      tags: [d2]
+  loop: [Deployment, StatefulSet]
+  loop_control:
+    loop_var: dr_protect_kind

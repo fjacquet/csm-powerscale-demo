@@ -1,0 +1,11 @@
+isilonClusters:
+{% for arr in [site.local_array, site.remote_array] %}
+  - clusterName: "{{ arrays[arr].name }}"
+    username: "{{ ps_user }}"
+    password: "{{ vault_ps_passwords[arr] }}"
+    endpoint: "{{ arrays[arr].endpoint }}"
+    endpointPort: "8080"
+    isDefault: {{ (arr == site.local_array) | lower }}
+    skipCertificateValidation: {{ skip_cert_validation | bool | lower }}
+    isiPath: "{{ isi_path }}"
+{% endfor %}

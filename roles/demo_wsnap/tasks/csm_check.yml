@@ -1,0 +1,137 @@
+---
+# CSM layer on the protected REPLICATED PVC (the source is only read): snapshot -> writable clone on B in the same namespace -> a reader pod
+# lists the clone and writes into it -> OneFS shows a new writable snapshot for the source directory -> cleanup in dependency order -> none left.
+# A failure leaves the objects for inspection; --tags cleanup removes them.
+- name: List the leftovers of a previous run
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }}
+    get volumesnapshot/demo-ws-snap pvc/demo-ws-clone pod/demo-ws-reader --ignore-not-found -o name
+  register: demo_wsnap_leftovers
+  changed_when: false
+
+- name: Refuse to start on leftovers (re-applied objects would hide a stale state)
+  ansible.builtin.assert:
+    that: demo_wsnap_leftovers.stdout | trim | length == 0
+    fail_msg: >-
+      Namespace {{ demo_wsnap_protected_ns }} still holds objects from an earlier run ({{ demo_wsnap_leftovers.stdout_lines | join(', ') }}).
+      Run --tags cleanup -e confirm_writable_cleanup=yes first.
+    quiet: true
+
+- name: Directory for the rendered manifests
+  ansible.builtin.file:
+    path: "{{ dr_dir }}/writable"
+    state: directory
+    mode: "0700"
+
+- name: Take the watched path and the baseline before the clone
+  ansible.builtin.include_tasks: evidence_prepare.yml
+
+- name: Snapshot the protected PVC
+  ansible.builtin.include_tasks: csm_step.yml
+  vars:
+    demo_wsnap_step: snapshot
+
+- name: Wait for the snapshot to be ready
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }}
+    wait --for=jsonpath={.status.readyToUse}=true volumesnapshot/demo-ws-snap --timeout=180s
+  register: demo_wsnap_snap_wait
+  changed_when: false
+  failed_when: false
+
+- name: Read the snapshot error when it is not ready
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }}
+    get volumesnapshot demo-ws-snap -o jsonpath={.status.error.message}
+  register: demo_wsnap_snap_error
+  changed_when: false
+  failed_when: false
+  when: demo_wsnap_snap_wait.rc != 0
+
+- name: Assert the CSI snapshot of the protected PVC became ready
+  ansible.builtin.assert:
+    that: demo_wsnap_snap_wait.rc == 0
+    fail_msg: >-
+      The CSI snapshot of {{ demo_wsnap_protected_ns }}/{{ demo_wsnap_protected_pvc }} is not ready ({{ demo_wsnap_snap_error.stdout | default('no error reported') }}).
+      The lab guide v6 states that CSI snapshots are not available for SyncIQ-replicated volumes: this is the thing to confirm with Dell.
+    quiet: true
+
+- name: Read the restore size of the snapshot
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }} get volumesnapshot demo-ws-snap -o jsonpath={.status.restoreSize}
+  register: demo_wsnap_restore_size
+  changed_when: false
+
+- name: Provision the writable clone from the snapshot
+  ansible.builtin.include_tasks: csm_step.yml
+  vars:
+    demo_wsnap_step: clone
+    demo_wsnap_clone_size: "{{ demo_wsnap_restore_size.stdout }}"
+
+- name: Wait for the clone PVC
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }}
+    wait --for=jsonpath={.status.phase}=Bound pvc/demo-ws-clone --timeout=180s
+  changed_when: false
+
+- name: Read and write the clone from a pod
+  ansible.builtin.include_tasks: csm_step.yml
+  vars:
+    demo_wsnap_step: reader
+
+- name: Wait for the reader
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }}
+    wait --for=jsonpath={.status.phase}=Succeeded pod/demo-ws-reader --timeout=180s
+  changed_when: false
+
+- name: Fetch the reader output
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }} logs demo-ws-reader
+  register: demo_wsnap_reader
+  changed_when: false
+
+- name: Assert the clone holds the content of the snapshot and accepts a write
+  ansible.builtin.assert:
+    that: demo_wsnap_reader.stdout | trim | int > 0
+    fail_msg: "The clone listed {{ demo_wsnap_reader.stdout | trim }} entries: it is empty or unreadable (NFS root access on B, or the volume content)."
+    quiet: true
+
+- name: List the writable snapshots with the clone alive
+  ansible.builtin.include_tasks: array_list.yml
+
+- name: Assert OneFS shows a new writable snapshot for the source volume
+  ansible.builtin.assert:
+    that: demo_wsnap_new_entries | length > 0
+    fail_msg: >-
+      No new writable snapshot with Src Path {{ demo_wsnap_watch_paths | join(', ') }} appeared although the clone is bound.
+      The path format may differ (see watch_path.yml), or the StorageClass did not take the writable path.
+      New writable snapshots on other paths (a clue if the path format is wrong): {{ demo_wsnap_unmatched | map(attribute='src_path') | list }}.
+    quiet: true
+
+- name: Read the PV name of the clone
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }} get pvc demo-ws-clone -o jsonpath={.spec.volumeName}
+  register: demo_wsnap_clone_pv
+  changed_when: false
+
+- name: Delete the reader, the clone and the snapshot in dependency order
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }}
+    delete {{ item }} --wait=true --timeout=180s
+  loop: [pod/demo-ws-reader, pvc/demo-ws-clone, volumesnapshot/demo-ws-snap]
+  changed_when: true
+
+- name: Wait until the clone PV is gone (OneFS removes the writable snapshot with it, after the PVC delete returns)
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} wait --for=delete pv/{{ demo_wsnap_clone_pv.stdout }} --timeout=180s
+  changed_when: false
+
+- name: List the writable snapshots after the cleanup
+  ansible.builtin.include_tasks: array_list.yml
+
+- name: Assert no writable snapshot is left for the source volume
+  ansible.builtin.assert:
+    that: demo_wsnap_new_entries | length == 0
+    fail_msg: "A writable snapshot of {{ demo_wsnap_watch_paths | join(', ') }} remains on the array after the cleanup: {{ demo_wsnap_new_entries }}."
+    quiet: true

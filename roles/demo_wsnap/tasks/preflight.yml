@@ -1,0 +1,136 @@
+---
+# Read-only except the snapshot probe at the end (creates then deletes one VolumeSnapshot). Every failure names what is missing. SnapshotIQ licensing is already asserted by ps_prep (preflight.yml).
+# The role never changes the driver install: missing sidecars are reported, not fixed.
+- name: Read the Kubernetes server version
+  ansible.builtin.command: kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} version -o json
+  register: demo_wsnap_kver
+  changed_when: false
+
+- name: Assert Kubernetes 1.34 or later
+  ansible.builtin.assert:
+    that: >-
+      (demo_wsnap_kver.stdout | from_json).serverVersion.gitVersion
+      | regex_replace('^v?([0-9.]+).*$', '\\1') is version('1.34', '>=')
+    fail_msg: "Writable snapshots need Kubernetes 1.34 or later (found {{ (demo_wsnap_kver.stdout | from_json).serverVersion.gitVersion }})."
+    quiet: true
+
+- name: Assert the VolumeSnapshot CRDs exist
+  ansible.builtin.assert:
+    that: demo_wsnap_vscs is not failed
+    fail_msg: "VolumeSnapshotClass is not served: install the external-snapshotter CRDs (v8.4.0 or later)."
+    quiet: true
+
+- name: List the csi-isilon pods
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ demo_wsnap_site.kubeconfig }}"
+    kind: Pod
+    namespace: "{{ csi_ns }}"
+  register: demo_wsnap_pods
+
+- name: Gather the csi-isilon controller containers
+  ansible.builtin.set_fact:
+    demo_wsnap_ctrl_pods: "{{ demo_wsnap_pods.resources | selectattr('metadata.name', 'match', '^isilon-controller') | list }}"
+    demo_wsnap_ctrl_containers: >-
+      {{ demo_wsnap_pods.resources | selectattr('metadata.name', 'match', '^isilon-controller') | map(attribute='spec.containers') | flatten }}
+
+- name: Extract the driver image tag
+  ansible.builtin.include_tasks: image_tag.yml
+  vars:
+    demo_wsnap_image: "{{ demo_wsnap_ctrl_containers | selectattr('name', 'eq', 'driver') | map(attribute='image') | first | default('') }}"
+
+- name: Assert the driver controller has the snapshotter and resizer sidecars and a driver >= 2.18.0
+  vars:
+    _names: "{{ demo_wsnap_ctrl_containers | map(attribute='name') | list }}"
+    # A digest-pinned image has no tag: fall back to the CSM release (CSM 1.18.0 ships driver 2.18.0).
+    _driver_ok: >-
+      {{ (demo_wsnap_image_tag | regex_replace('^v', '') is version('2.18.0', '>='))
+         if demo_wsnap_image_tag is match('^v?[0-9]') else (csm_version | regex_replace('^v', '') is version('1.18.0', '>=')) }}
+  ansible.builtin.assert:
+    that:
+      - demo_wsnap_ctrl_pods | length > 0
+      - "'snapshotter' in _names"
+      - "'resizer' in _names"
+      - _driver_ok
+    fail_msg: >-
+      The csi-isilon controller in namespace {{ csi_ns }} must run the snapshotter and resizer sidecars and driver 2.18.0 or later
+      (pods found: {{ demo_wsnap_ctrl_pods | length }}, containers: {{ _names }}, driver image tag: '{{ demo_wsnap_image_tag }}').
+    quiet: true
+
+- name: Look for the snapshot controller
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ demo_wsnap_site.kubeconfig }}"
+    api_version: apps/v1
+    kind: Deployment
+    field_selectors: ["metadata.name={{ item }}"]
+  register: demo_wsnap_snapctl
+  loop: [snapshot-controller, csi-snapshot-controller]
+
+- name: Gather the snapshot controller deployments
+  ansible.builtin.set_fact:
+    demo_wsnap_snapctl_deployments: "{{ demo_wsnap_snapctl.results | map(attribute='resources') | flatten }}"
+
+- name: Extract the snapshot controller image tag
+  ansible.builtin.include_tasks: image_tag.yml
+  vars:
+    demo_wsnap_image: >-
+      {{ demo_wsnap_snapctl_deployments | map(attribute='spec.template.spec.containers') | flatten | map(attribute='image') | first | default('') }}
+
+- name: Assert a snapshot controller runs and is v8.4.0 or later when its image has a tag (digest-pinned images are accepted)
+  ansible.builtin.assert:
+    that:
+      - demo_wsnap_snapctl_deployments | length > 0
+      - demo_wsnap_image_tag is not match('^v?[0-9]') or (demo_wsnap_image_tag | regex_replace('^v', '') is version('8.4.0', '>='))
+    fail_msg: "A snapshot controller v8.4.0 or later is required (found {{ demo_wsnap_snapctl_deployments | length }} deployment(s), tag '{{ demo_wsnap_image_tag }}')."
+    quiet: true
+
+- name: Read the OneFS version through the API
+  ansible.builtin.uri:
+    url: "https://{{ arrays[demo_wsnap_site.local_array].endpoint }}:{{ ps_conn[demo_wsnap_site.local_array].port_no }}/platform/3/cluster/version"
+    user: "{{ ps_conn[demo_wsnap_site.local_array].api_user }}"
+    password: "{{ ps_conn[demo_wsnap_site.local_array].api_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ ps_conn[demo_wsnap_site.local_array].verify_ssl }}"
+    return_content: true
+  register: demo_wsnap_onefs_api
+  no_log: true
+  when: ps_access == 'api'
+
+- name: Read the OneFS version over SSH
+  ansible.builtin.raw: isi version
+  delegate_to: "{{ demo_wsnap_site.local_array }}"
+  register: demo_wsnap_onefs_ssh
+  changed_when: false
+  when: ps_access == 'ssh'
+
+- name: Assert OneFS 9.13 or later
+  vars:
+    _text: "{{ demo_wsnap_onefs_api.json.nodes[0].release if ps_access == 'api' else demo_wsnap_onefs_ssh.stdout }}"
+    _version: "{{ _text | regex_search('[0-9]+(\\.[0-9]+)+') }}"
+  ansible.builtin.assert:
+    that: _version is version('9.13.0', '>=')
+    fail_msg: "Writable snapshots need OneFS 9.13.0 or later (found {{ _version }})."
+    quiet: true
+
+- name: Report the OpenShift version (no gate)
+  when: platform == 'openshift'
+  block:
+    - name: Read the ClusterVersion
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ demo_wsnap_site.kubeconfig }}"
+        api_version: config.openshift.io/v1
+        kind: ClusterVersion
+        name: version
+      register: demo_wsnap_ocp
+
+    - name: Show the OpenShift version
+      ansible.builtin.debug:
+        msg: "OpenShift {{ demo_wsnap_ocp.resources[0].status.desired.version }}; check PPDM 20.3 support in the E-Lab Navigator."
+
+- name: Probe a CSI snapshot of the protected PVC
+  ansible.builtin.include_tasks: snapshot_probe.yml
+  when: demo_wsnap_probe_snapshot | bool and not (demo_wsnap_create_snapclass | bool)
+
+- name: Say why the snapshot probe was skipped
+  ansible.builtin.debug:
+    msg: "Snapshot probe skipped: the VolumeSnapshotClass {{ demo_wsnap_snapclass_selected }} does not exist yet (run --tags csm first) or the probe is disabled."
+  when: not (demo_wsnap_probe_snapshot | bool) or (demo_wsnap_create_snapclass | bool)

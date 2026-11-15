@@ -1,0 +1,18 @@
+---
+- name: Create the mirrored replication StorageClass on each cluster (parameters are immutable)
+  block:
+    - name: Apply isilon-replication
+      kubernetes.core.k8s:
+        kubeconfig: "{{ site.kubeconfig }}"
+        state: present
+        template: storageclass.yaml.j2
+      loop: "{{ site_list }}"
+      loop_control:
+        loop_var: site
+        label: "{{ site.id }}"
+  rescue:
+    - name: Explain the immutable StorageClass failure
+      ansible.builtin.fail:
+        msg: >-
+          StorageClass apply failed. Parameters are immutable: delete isilon-replication on the cluster, re-provision
+          test volumes and re-run. Original error: {{ ansible_failed_result.msg | default('n/a') }}

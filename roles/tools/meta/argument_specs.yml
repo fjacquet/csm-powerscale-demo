@@ -1,0 +1,23 @@
+---
+argument_specs:
+  main:
+    short_description: Checks (default) or installs the CSM tools (helm, dellctl, repctl, yq), adds the
+    description:
+      - Checks (default) or installs the CSM tools (helm, dellctl, repctl, yq), adds the Dell Helm repo and registers clusters
+        in dellctl and repctl.
+    options:
+      tools_install:
+        type: bool
+        description: Install dellctl, repctl, yq, Helm 4 and python deps (needs sudo)
+        default: false
+        required: false
+      tools_check_only:
+        type: bool
+        description: Only verify; skip repo add and cluster registration
+        default: false
+        required: false
+      csm_tools_version:
+        type: str
+        description: dellctl/repctl release tag
+        default: v1.18.2
+        required: false

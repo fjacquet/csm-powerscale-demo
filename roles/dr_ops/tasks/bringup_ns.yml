@@ -1,0 +1,30 @@
+---
+- name: "PVCs already on secondary? - {{ ns }}"
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ sites.secondary.kubeconfig }}"
+    kind: PersistentVolumeClaim
+    namespace: "{{ ns }}"
+  register: dr_ops_existing_pvcs
+
+- name: "Dry run, then recreate PVCs from the replica PVs (option B only) - {{ ns }}"
+  ansible.builtin.command: "repctl create pvc --rg {{ item.1[1] }} -t {{ ns }} {{ repctl_create_pvc_args }} {{ item.0 }}"
+  loop: "{{ ['', '--dry-run=false'] | product(dr_ops_selected | selectattr('0', 'eq', ns) | list) | list }}"
+  loop_control:
+    label: "{{ item.1[1] }} {{ item.0 | default('dry-run', true) }}"
+  when: not (allow_pvc_creation_on_target | bool) and dr_ops_existing_pvcs.resources | length == 0
+  changed_when: item.0 == '--dry-run=false'
+
+- name: "PVCs are Bound - {{ ns }}"
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ sites.secondary.kubeconfig }}"
+    kind: PersistentVolumeClaim
+    namespace: "{{ ns }}"
+  register: dr_ops_bound
+  until: dr_ops_bound.resources | length > 0 and (dr_ops_bound.resources | rejectattr('status.phase', 'eq', 'Bound') | list | length == 0)
+  retries: 30
+  delay: 10
+
+- name: "Scale the applications up on secondary (production: let GitOps do this) - {{ ns }}"
+  ansible.builtin.include_tasks: scale_up.yml
+  vars:
+    dr_site: secondary

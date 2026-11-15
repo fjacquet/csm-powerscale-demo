@@ -1,0 +1,38 @@
+---
+argument_specs:
+  main:
+    short_description: O1 to O6
+    description:
+      - 'O1 to O6: CSM Operator, repctl inject, driver secrets, ContainerStorageModule, StorageClass pair and verification
+        (OpenShift track).'
+    options:
+      csm_version:
+        type: str
+        description: ContainerStorageModule spec.version
+        default: v1.18.2
+        required: false
+      ocp_operator_channel:
+        type: str
+        description: OperatorHub channel
+        default: stable
+        required: false
+      ocp_operator_namespace:
+        type: str
+        description: Operator namespace
+        default: openshift-operators
+        required: false
+      ocp_inject_use_sa:
+        type: bool
+        description: repctl cluster inject --use-sa after the controller exists
+        default: false
+        required: false
+      ocp_remote_api_ips:
+        type: dict
+        description: 'O3a: site id to IP of the OTHER cluster API'
+        default: {}
+        required: false
+      allow_pvc_creation_on_target:
+        type: bool
+        description: REPLICATION_ALLOW_PVC_CREATION_ON_TARGET
+        default: false
+        required: false

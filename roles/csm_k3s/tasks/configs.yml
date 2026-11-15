@@ -1,0 +1,10 @@
+---
+- name: "Render the dellctl config of each cluster (own folder per cluster, dellctl overwrites fixed file names)"
+  ansible.builtin.template:
+    src: dellctl.yaml.j2
+    dest: "{{ site.install_dir }}/{{ site.dellctl_file }}"
+    mode: "0640"
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"

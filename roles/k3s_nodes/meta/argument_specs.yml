@@ -1,0 +1,12 @@
+---
+argument_specs:
+  main:
+    short_description: K1
+    description:
+      - 'K1: NFS client and reachability checks on each K3s node (runs on the k3s inventory group).'
+    options:
+      k3s_nodes_check_only:
+        type: bool
+        description: Skip package installation
+        default: false
+        required: false

@@ -1,0 +1,31 @@
+---
+- name: Verify
+  hosts: localhost
+  gather_facts: true
+  vars_files: [fixtures/vars.yml]
+  tasks:
+    - name: Stat the rendered env file
+      ansible.builtin.stat:
+        path: "{{ env_file }}"
+      register: common_verify_env
+
+    - name: Assert it exists and carries the namespaces
+      ansible.builtin.assert:
+        that:
+          - common_verify_env.stat.exists
+          - lookup('ansible.builtin.file', env_file) is search('APP_NAMESPACES="app-a app-b"')
+
+    - name: A too-long namespace must be rejected by the 63-character check
+      block:
+        - name: Run common with a 40-character namespace
+          ansible.builtin.include_role:
+            name: common
+          vars:
+            app_namespaces: ["this-namespace-name-is-way-too-long-xx"] # noqa: var-naming[no-role-prefix]
+        - name: Fail if the role accepted it
+          ansible.builtin.fail:
+            msg: the 63-character check did not fire
+      rescue:
+        - name: Confirm the failure came from the name check
+          ansible.builtin.assert:
+            that: "'Name too long' in (ansible_failed_result | to_json)"

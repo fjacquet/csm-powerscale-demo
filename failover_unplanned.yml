@@ -1,0 +1,23 @@
+---
+# D4: primary site lost. Data since the last SyncIQ job (up to the RPO) may be lost.
+#   ansible-playbook failover_unplanned.yml -e confirm_unplanned_failover=yes
+- name: Unplanned failover
+  hosts: mgmt
+  gather_facts: true
+  vars:
+    confirm_unplanned_failover: "no"
+  pre_tasks:
+    - name: Require explicit confirmation
+      ansible.builtin.assert:
+        that: confirm_unplanned_failover == 'yes'
+        fail_msg: "Unplanned failover can lose up to {{ rpo }} of data. Re-run with -e confirm_unplanned_failover=yes."
+        quiet: true
+  tasks:
+    - name: D4 - unplanned failover of every RG
+      ansible.builtin.import_role:
+        name: dr_ops
+        tasks_from: unplanned.yml
+    - name: D3b - bring the applications up on secondary
+      ansible.builtin.import_role:
+        name: dr_ops
+        tasks_from: bringup.yml

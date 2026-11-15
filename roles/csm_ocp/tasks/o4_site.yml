@@ -1,0 +1,61 @@
+---
+- name: Create the driver namespace on {{ site.id }}
+  kubernetes.core.k8s:
+    kubeconfig: "{{ site.kubeconfig }}"
+    kind: Namespace
+    name: "{{ csi_ns }}"
+    state: present
+
+# Both arrays go in each cluster's secret; the local array is the default. Rendered in memory, no temp file.
+- name: Create isilon-creds and isilon-certs-0 on {{ site.id }}
+  kubernetes.core.k8s:
+    kubeconfig: "{{ site.kubeconfig }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata: { name: "{{ item.name }}", namespace: "{{ csi_ns }}" }
+      type: Opaque
+      stringData: "{{ item.data }}"
+  loop:
+    - name: isilon-creds
+      data:
+        config: "{{ lookup('ansible.builtin.template', 'isilon-config.yaml.j2') }}"
+    - name: isilon-certs-0
+      data:
+        cert-0: ""
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+
+- name: Apply the ContainerStorageModule
+  kubernetes.core.k8s:
+    kubeconfig: "{{ site.kubeconfig }}"
+    state: present
+    template: csm.yaml.j2
+
+- name: Wait for the ContainerStorageModule to report Succeeded
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ site.kubeconfig }}"
+    api_version: storage.dell.com/v1
+    kind: ContainerStorageModule
+    name: isilon
+    namespace: "{{ csi_ns }}"
+  register: csm_ocp_csm
+  until: csm_ocp_csm.resources | length == 1 and (csm_ocp_csm.resources[0].status.state | default('')) == 'Succeeded'
+  retries: 40
+  delay: 15
+
+- name: Replication controller exists
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ site.kubeconfig }}"
+    api_version: apps/v1
+    kind: Deployment
+    name: dell-replication-controller-manager
+  register: csm_ocp_repl
+  failed_when: csm_ocp_repl.resources | length != 1
+
+- name: Optional - use service-account tokens instead of admin kubeconfigs (after the controller exists)
+  ansible.builtin.command: repctl cluster inject --use-sa
+  when: ocp_inject_use_sa | bool and site.id == 'secondary'
+  changed_when: true

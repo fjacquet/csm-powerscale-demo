@@ -1,0 +1,18 @@
+---
+# D3c: replicate back (new source -> old source). Until then, writes on the new source are not replicated anywhere.
+- name: Include the map
+  ansible.builtin.include_tasks: load_map.yml
+
+- name: Reprotect each RG at the current source
+  ansible.builtin.command: "repctl --rg {{ item }} reprotect --at {{ dr_new_source | default('secondary') }} {{ repctl_wait_args | default('--wait') }}"
+  loop: "{{ dr_ops_selected | map(attribute='1') | unique | list }}"
+  changed_when: true
+
+- name: Show the result
+  ansible.builtin.command: repctl get rg
+  register: dr_ops_after
+  changed_when: false
+
+- name: RG status
+  ansible.builtin.debug:
+    var: dr_ops_after.stdout_lines

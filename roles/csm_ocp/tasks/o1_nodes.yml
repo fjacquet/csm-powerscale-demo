@@ -1,0 +1,36 @@
+---
+# kubeconfigs come from `oc login --kubeconfig ...` (interactive credentials): asserted by the common role, not created here.
+- name: List worker nodes
+  ansible.builtin.command: >-
+    oc --kubeconfig {{ site.kubeconfig }} get nodes -l node-role.kubernetes.io/worker -o name
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"
+  register: csm_ocp_workers
+  changed_when: false
+
+- name: Workers have the NFS client and reach both arrays (API, NFS, rpcbind)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    oc --kubeconfig {{ item.0.site.kubeconfig }} debug {{ item.1 }} -q -- chroot /host sh -c '
+      rpm -q nfs-utils >/dev/null || { echo "nfs-utils missing"; exit 1; }
+      for IP in {{ arrays.values() | map(attribute="endpoint") | join(" ") }}; do
+        for P in 8080 2049 111; do timeout 3 bash -c "</dev/tcp/$IP/$P" 2>/dev/null || { echo "$IP:$P FAIL"; exit 1; }; done
+      done'
+  args:
+    executable: /bin/bash
+  loop: "{{ csm_ocp_workers.results | subelements('stdout_lines') }}"
+  loop_control:
+    label: "{{ item.0.site.id }} {{ item.1 }}"
+  changed_when: false
+
+- name: Each cluster reaches the OTHER cluster's API
+  ansible.builtin.uri:
+    url: "https://{{ sites[site.peer].ocp_api }}:6443/version"
+    validate_certs: false
+    status_code: [200, 401, 403]
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }} -> {{ site.peer }}"

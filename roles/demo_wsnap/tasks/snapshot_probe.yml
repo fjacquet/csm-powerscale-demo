@@ -1,0 +1,60 @@
+---
+# Can the protected PVC be snapshotted through CSI? The v6 guide says "No CSI snapshots of SyncIQ-replicated volumes" without a source.
+# Snapshots the protected PVC itself (no new replicated volume, so no RG/SyncIQ side effect), waits, then deletes the snapshot.
+# It only warns: the CSM layer does not depend on it, but PPDM cannot back up a PVC whose CSI snapshot never gets ready.
+- name: Check that the protected PVC exists
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }} get pvc {{ demo_wsnap_protected_pvc }} -o name
+  register: demo_wsnap_probe_pvc
+  changed_when: false
+  failed_when: false
+
+- name: Probe a CSI snapshot of the protected PVC
+  when: demo_wsnap_probe_pvc.rc == 0
+  block:
+    - name: Directory for the rendered manifests
+      ansible.builtin.file:
+        path: "{{ dr_dir }}/writable"
+        state: directory
+        mode: "0700"
+
+    - name: Create the probe snapshot
+      ansible.builtin.include_tasks: csm_step.yml
+      vars:
+        demo_wsnap_step: probe
+
+    - name: Wait for the probe snapshot to be ready
+      ansible.builtin.command: >-
+        kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }}
+        wait --for=jsonpath={.status.readyToUse}=true volumesnapshot/demo-ws-probe --timeout=90s
+      register: demo_wsnap_probe_wait
+      changed_when: false
+      failed_when: false
+
+    - name: Read the snapshot error when it is not ready
+      ansible.builtin.command: >-
+        kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }}
+        get volumesnapshot demo-ws-probe -o jsonpath={.status.error.message}
+      register: demo_wsnap_probe_error
+      changed_when: false
+      failed_when: false
+      when: demo_wsnap_probe_wait.rc != 0
+
+  always:
+    - name: Delete the probe snapshot
+      ansible.builtin.command: >-
+        kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }}
+        delete volumesnapshot demo-ws-probe --ignore-not-found --wait=true --timeout=120s
+      changed_when: false
+      when: demo_wsnap_probe_pvc.rc == 0
+
+- name: Report the probe result
+  ansible.builtin.debug:
+    msg: >-
+      {{ 'CSI snapshot of ' ~ demo_wsnap_protected_ns ~ '/' ~ demo_wsnap_protected_pvc ~ ' is ready: the lab guide v6 rule "no CSI snapshots of replicated volumes" does not hold here.'
+         if demo_wsnap_probe_pvc.rc == 0 and demo_wsnap_probe_wait.rc == 0
+         else ('WARNING: the CSI snapshot of ' ~ demo_wsnap_protected_ns ~ '/' ~ demo_wsnap_protected_pvc ~ ' did not become ready ('
+               ~ (demo_wsnap_probe_error.stdout | default('no error reported')) ~ '). PPDM cannot back it up through a snapshot (guide v6: no CSI snapshots of replicated volumes).'
+               ~ ' Protect a PVC on a plain class: -e demo_wsnap_protected_ns=... -e demo_wsnap_protected_pvc=... -e demo_wsnap_source_sc=...')
+         if demo_wsnap_probe_pvc.rc == 0
+         else 'Probe skipped: PVC ' ~ demo_wsnap_protected_ns ~ '/' ~ demo_wsnap_protected_pvc ~ ' not found (deploy the Wiki.js demo or set demo_wsnap_protected_*).' }}

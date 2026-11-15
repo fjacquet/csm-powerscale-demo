@@ -1,0 +1,17 @@
+---
+galaxy_info:
+  author: Fred Jacquet
+  namespace: fjacquet
+  role_name: demo_wiki
+  description: 'Wiki.js + PostgreSQL demo workload for the DR demo, deployed with kubectl (MetalLB on K3s). Use with tasks_from.'
+  license: Apache-2.0
+  min_ansible_version: '2.16'
+  platforms:
+    - name: GenericLinux
+      versions:
+        - all
+  galaxy_tags:
+    - powerscale
+    - csm
+    - replication
+dependencies: []

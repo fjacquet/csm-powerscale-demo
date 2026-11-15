@@ -1,0 +1,21 @@
+---
+# Needs: ns, demo_wiki_template (pvc|workloads|shared), demo_wiki_site (an entry of sites).
+# Renders the manifest to a plain file (so a presenter can read or re-run the same kubectl apply) and applies it.
+- name: Directory for the rendered manifests - {{ demo_wiki_site.id }}
+  ansible.builtin.file:
+    path: "{{ dr_dir }}/wiki/{{ demo_wiki_site.id }}"
+    state: directory
+    mode: "0700"
+
+- name: Render the manifest - {{ demo_wiki_template }}
+  ansible.builtin.template:
+    src: "{{ demo_wiki_template }}.yaml.j2"
+    dest: "{{ dr_dir }}/wiki/{{ demo_wiki_site.id }}/{{ ns }}-{{ demo_wiki_template }}.yaml"
+    mode: "0600"
+  no_log: true # the shared manifest holds the database password
+
+- name: Apply the manifest - {{ demo_wiki_template }}
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wiki_site.kubeconfig }} apply -f {{ dr_dir }}/wiki/{{ demo_wiki_site.id }}/{{ ns }}-{{ demo_wiki_template }}.yaml
+  register: demo_wiki_applied
+  changed_when: "'created' in demo_wiki_applied.stdout or 'configured' in demo_wiki_applied.stdout"

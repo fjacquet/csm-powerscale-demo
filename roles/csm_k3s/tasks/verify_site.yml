@@ -1,0 +1,76 @@
+---
+# K7 + K8 for one cluster ({{ site.id }}).
+- name: Driver and replication pods are Running
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ site.kubeconfig }}"
+    kind: Pod
+    namespace: "{{ item }}"
+  loop: "{{ [csi_ns, csm_k3s_repl_ns[site.id]] | unique }}"
+  register: csm_k3s_verify_pods
+  until: csm_k3s_verify_pods.resources | length > 0 and (csm_k3s_verify_pods.resources | rejectattr('status.phase', 'in', ['Running', 'Succeeded']) | list | length == 0)
+  retries: 20
+  delay: 15
+
+- name: Read the remote-cluster Secret (must point to the OTHER cluster)
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ site.kubeconfig }}"
+    kind: Secret
+    name: "{{ site.peer }}"
+    namespace: "{{ csm_k3s_repl_ns[site.id] }}"
+  register: csm_k3s_verify_secret
+  no_log: true
+
+- name: Assert the Secret server is the peer API, not 127.0.0.1
+  ansible.builtin.assert:
+    that:
+      - csm_k3s_verify_secret.resources | length == 1
+      - (csm_k3s_verify_secret.resources[0].data.values() | map('b64decode') | join('\n')) is search('server:\s*https://' ~ sites[site.peer].k3s_ip ~ ':6443')
+    fail_msg: "Secret {{ site.peer }} in {{ csm_k3s_repl_ns[site.id] }} does not reference https://{{ sites[site.peer].k3s_ip }}:6443 (guide K7)."
+    quiet: true
+  no_log: true
+
+- name: Read the controller ConfigMap
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ site.kubeconfig }}"
+    kind: ConfigMap
+    name: dell-replication-controller-config
+    namespace: "{{ csm_k3s_repl_ns[site.id] }}"
+  register: csm_k3s_verify_cm
+
+- name: Assert local clusterId and target reference
+  ansible.builtin.assert:
+    that:
+      - csm_k3s_verify_cm.resources | length == 1
+      - (csm_k3s_verify_cm.resources[0].data.values() | join('\n')) is search('clusterId:\s*' ~ site.id)
+      - (csm_k3s_verify_cm.resources[0].data.values() | join('\n')) is search(site.peer)
+    fail_msg: "ConfigMap on {{ site.id }} lacks clusterId {{ site.id }} or target {{ site.peer }}. Re-apply 06_replication.yaml and restart the controller."
+    quiet: true
+
+- name: Read StorageClasses
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ site.kubeconfig }}"
+    api_version: storage.k8s.io/v1
+    kind: StorageClass
+  register: csm_k3s_verify_sc
+
+- name: Read the peer StorageClasses
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ sites[site.peer].kubeconfig }}"
+    api_version: storage.k8s.io/v1
+    kind: StorageClass
+  register: csm_k3s_verify_sc_peer
+
+- name: Assert the replication StorageClass pair (remoteStorageClassName exists on the peer, prefix is per cluster)
+  ansible.builtin.assert:
+    that:
+      - _repl_scs | length >= 1
+      - item.parameters[sc_param_prefix ~ '/remoteStorageClassName'] in (csm_k3s_verify_sc_peer.resources | map(attribute='metadata.name') | list)
+      - item.parameters[sc_param_prefix ~ '/volumeGroupPrefix'] == site.vg_prefix
+      - item.parameters[sc_param_prefix ~ '/remoteClusterID'] == site.peer
+    fail_msg: "StorageClass {{ item.metadata.name }} on {{ site.id }} is not paired (guide K8). Fix 05_storageclass.yaml, delete the class and re-apply."
+    quiet: true
+  loop: "{{ _repl_scs }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  vars:
+    _repl_scs: "{{ csm_k3s_verify_sc.resources | selectattr('parameters', 'defined') | selectattr('parameters', 'contains', sc_param_prefix ~ '/isReplicationEnabled') | list }}"

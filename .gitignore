@@ -1,0 +1,12 @@
+.venv/
+collections/
+artifacts/
+group_vars/all/vault.yml
+*.retry
+__pycache__/
+.DS_Store
+.superpowers/
+
+# Vendor documents (Dell PDFs, OpenAPI specs): not ours to redistribute. test_writable_snap_endpoints needs docs/openapi locally.
+docs/references/
+docs/openapi/

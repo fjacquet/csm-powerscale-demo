@@ -1,0 +1,8 @@
+---
+# cp vault.yml.example vault.yml && ansible-vault encrypt vault.yml
+# Run playbooks with --ask-vault-pass (or --vault-password-file).
+vault_ps_passwords:
+  ps1: CHANGE_ME # csi-user password on PS1
+  ps2: CHANGE_ME # csi-user password on PS2
+vault_wiki_db_password: CHANGE_ME # Wiki.js PostgreSQL password (same on both sites)
+vault_wiki_admin_password: CHANGE_ME # Wiki.js admin account

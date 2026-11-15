@@ -1,0 +1,25 @@
+---
+# D6 ordering: the last write must be captured BEFORE the writers stop. A stale file from an earlier run is removed first.
+- name: Remove a stale last-write file - {{ ns }}
+  ansible.builtin.file:
+    path: "{{ dr_dir }}/last-{{ ns }}.txt"
+    state: absent
+
+- name: Read the last write on the active site - {{ ns }}
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ sites[dr_site].kubeconfig }} -n {{ ns }} exec deploy/{{ demo_writer_deploy }} -- tail -n1 /data/{{ ns }}.log
+  register: dr_ops_last
+  changed_when: false
+  failed_when: false
+
+- name: Store it - {{ ns }}
+  ansible.builtin.copy:
+    content: "{{ dr_ops_last.stdout }}\n"
+    dest: "{{ dr_dir }}/last-{{ ns }}.txt"
+    mode: "0644"
+  when: dr_ops_last.rc == 0 and dr_ops_last.stdout | length > 0
+
+- name: Warn when no last write could be captured - {{ ns }}
+  ansible.builtin.debug:
+    msg: "No last write captured for {{ ns }} (no running writer?). The D6 data check will fail for it."
+  when: dr_ops_last.rc != 0 or dr_ops_last.stdout | length == 0

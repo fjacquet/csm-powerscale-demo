@@ -1,0 +1,60 @@
+---
+# D5: back to primary. failback_mode: keep (default) | discard (throws away secondary writes).
+- name: Include the map
+  ansible.builtin.include_tasks: load_map.yml
+
+- name: Stop writers on secondary
+  ansible.builtin.include_tasks: scale_down.yml
+  loop: "{{ dr_namespaces }}"
+  loop_control:
+    loop_var: ns
+  vars:
+    dr_site: secondary
+
+- name: Fail back each RG
+  ansible.builtin.command: >-
+    repctl --rg {{ item }} failback --target primary
+    {{ '--discard' if failback_mode | default('keep') == 'discard' else '' }}
+    {{ repctl_wait_args | default('--wait') }}
+  loop: "{{ dr_ops_selected | map(attribute='1') | unique | list }}"
+  changed_when: true
+
+- name: Original PVCs on primary are Bound
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ sites.primary.kubeconfig }}"
+    kind: PersistentVolumeClaim
+    namespace: "{{ ns }}"
+  loop: "{{ dr_namespaces }}"
+  loop_control:
+    loop_var: ns
+  register: dr_ops_primary_pvcs
+  until: dr_ops_primary_pvcs.resources | length > 0 and (dr_ops_primary_pvcs.resources | rejectattr('status.phase', 'eq', 'Bound') | list | length == 0)
+  retries: 30
+  delay: 10
+
+- name: Scale the applications up on primary
+  ansible.builtin.include_tasks: scale_up.yml
+  loop: "{{ dr_namespaces }}"
+  loop_control:
+    loop_var: ns
+  vars:
+    dr_site: primary
+
+- name: Record the DR state per namespace
+  ansible.builtin.lineinfile:
+    path: "{{ dr_dir }}/state"
+    regexp: "^{{ item }} "
+    line: "{{ item }} primary-active"
+    create: true
+    mode: "0644"
+  loop: "{{ dr_namespaces }}"
+
+- name: Show the Wiki.js URL on primary
+  ansible.builtin.include_role:
+    name: demo_wiki
+    tasks_from: urls.yml
+  loop: "{{ dr_namespaces | intersect(demo_wiki_namespaces) }}"
+  loop_control:
+    loop_var: ns
+  vars:
+    demo_wiki_site: "{{ sites.primary }}"

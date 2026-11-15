@@ -1,0 +1,7 @@
+---
+# D6: the last write captured before the failover must exist in the replicated log (planned failover = zero loss).
+- name: Check each namespace on the site now serving
+  ansible.builtin.include_tasks: "{{ 'check_wiki_ns.yml' if ns in demo_wiki_namespaces else 'check_data_ns.yml' }}"
+  loop: "{{ dr_namespaces }}"
+  loop_control:
+    loop_var: ns

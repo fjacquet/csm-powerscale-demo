@@ -1,0 +1,130 @@
+---
+# Offline test of tasks/array_parse.yml (pure parsing and baseline diff, no array access).
+- name: Writable snapshot array output parsing
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    _parse: "{{ playbook_dir }}/../roles/demo_wsnap/tasks/array_parse.yml"
+    _guide_table: |
+      Path                       Src Path         Src Snapshot
+      ---------------------------------------------------------
+      /ifs/writable_snap_media_3 /ifs/media_snaps media_snap_3
+      /ifs/writable_snap_media_2 /ifs/media_snaps media_snap_2
+      /ifs/writable_snap_media_1 /ifs/media_snaps media_snap_1
+      ---------------------------------------------------------
+      Total: 3
+    _empty_table: |
+      Path Src Path Src Snapshot
+      --------------------------
+      Total: 0
+  tasks:
+    - name: Parse the API JSON (OneFS 9.13 field names)
+      ansible.builtin.include_tasks: "{{ _parse }}"
+      vars:
+        demo_wsnap_parse_input:
+          total: 2
+          writable:
+            - { dst_path: /ifs/w1, src_path: /ifs/data/csi/pv1, src_snap: s1, created: 1789000000, state: active }
+            - { dst_path: /ifs/w2, src_path: /ifs/data/csi/pv2, src_snap: s2, created: 1789000100, state: active }
+
+    - name: API JSON gives two entries with epoch times
+      ansible.builtin.assert:
+        that:
+          - demo_wsnap_writable | length == 2
+          - demo_wsnap_writable[0].dst_path == '/ifs/w1'
+          - demo_wsnap_writable[1].created == 1789000100
+        quiet: true
+
+    - name: Parse an empty API answer
+      ansible.builtin.include_tasks: "{{ _parse }}"
+      vars:
+        demo_wsnap_parse_input: { total: 0, writable: [] }
+
+    - name: Empty API answer gives an empty list
+      ansible.builtin.assert:
+        that: demo_wsnap_writable == []
+        quiet: true
+
+    - name: Parse the CLI table from the OneFS guide
+      ansible.builtin.include_tasks: "{{ _parse }}"
+      vars:
+        demo_wsnap_parse_input: "{{ _guide_table }}"
+
+    - name: CLI table gives three entries without a time
+      ansible.builtin.assert:
+        that:
+          - demo_wsnap_writable | length == 3
+          - demo_wsnap_writable[0].dst_path == '/ifs/writable_snap_media_3'
+          - demo_wsnap_writable[0].src_path == '/ifs/media_snaps'
+          - demo_wsnap_writable[0].src_snap == 'media_snap_3'
+          - demo_wsnap_writable[0].created is not defined
+        quiet: true
+
+    - name: Parse an empty CLI table
+      ansible.builtin.include_tasks: "{{ _parse }}"
+      vars:
+        demo_wsnap_parse_input: "{{ _empty_table }}"
+
+    - name: Empty CLI table gives an empty list
+      ansible.builtin.assert:
+        that: demo_wsnap_writable == []
+        quiet: true
+
+    - name: Parse CLI JSON output (a bare list)
+      ansible.builtin.include_tasks: "{{ _parse }}"
+      vars:
+        demo_wsnap_parse_input: '[{"dst_path": "/ifs/w9", "src_path": "/ifs/data/csi/pv9", "src_snap": "s9", "created": 1789000200}]'
+
+    - name: CLI JSON gives one entry
+      ansible.builtin.assert:
+        that:
+          - demo_wsnap_writable | length == 1
+          - demo_wsnap_writable[0].src_snap == 's9'
+        quiet: true
+
+    - name: Diff against a baseline for the watched source path
+      ansible.builtin.include_tasks: "{{ _parse }}"
+      vars:
+        demo_wsnap_baseline: [/ifs/w_old]
+        demo_wsnap_watch_paths: [/ifs/data/csi/pv1]
+        demo_wsnap_parse_input:
+          writable:
+            - { dst_path: /ifs/w_old, src_path: /ifs/data/csi/pv1, src_snap: a }
+            - { dst_path: /ifs/w_new, src_path: /ifs/data/csi/pv1, src_snap: b }
+            - { dst_path: /ifs/w_other, src_path: /ifs/data/csi/pv2, src_snap: c }
+
+    - name: Only the new entry of the watched path is evidence
+      ansible.builtin.assert:
+        that:
+          - demo_wsnap_new_entries | map(attribute='dst_path') | list == ['/ifs/w_new']
+        quiet: true
+
+    - name: New entries outside the watched path are kept as clues
+      ansible.builtin.assert:
+        that:
+          - demo_wsnap_unmatched | map(attribute='dst_path') | list == ['/ifs/w_other']
+        quiet: true
+
+    - name: Turn a PV volumeHandle into the OneFS directory of the volume (format to confirm on the lab)
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/demo_wsnap/tasks/watch_path.yml"
+      vars:
+        demo_wsnap_pv_handle: "k8s-pv123=_=_=19=_=_=System=_=_=ps1"
+        demo_wsnap_isi_path: /ifs/data/csi
+
+    - name: The watched path is the IsiPath plus the volume name
+      ansible.builtin.assert:
+        that: demo_wsnap_watch_paths == ['/ifs/data/csi/k8s-pv123']
+        quiet: true
+
+    - name: Prefer the OneFS path from the PV volumeAttributes (replicated volumes live under a replication-group folder)
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/demo_wsnap/tasks/watch_path.yml"
+      vars:
+        demo_wsnap_pv_path: /ifs/data/csi/csi-pri-app-a-ps2-Five_Minutes/k8s-pv123
+        demo_wsnap_pv_handle: "k8s-pv123=_=_=19=_=_=System=_=_=ps1"
+        demo_wsnap_isi_path: /ifs/data/csi
+
+    - name: The attribute path wins over the handle guess
+      ansible.builtin.assert:
+        that: demo_wsnap_watch_paths == ['/ifs/data/csi/csi-pri-app-a-ps2-Five_Minutes/k8s-pv123']
+        quiet: true

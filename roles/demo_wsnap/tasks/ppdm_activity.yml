@@ -1,0 +1,16 @@
+---
+# Needs demo_wsnap_ppdm_token and demo_wsnap_activity_id. Out: demo_wsnap_activity (state, result).
+- name: Read the PPDM activity
+  ansible.builtin.uri:
+    method: GET
+    url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v3/activities/{{ demo_wsnap_activity_id }}"
+    headers:
+      Authorization: "Bearer {{ demo_wsnap_ppdm_token }}"
+    validate_certs: "{{ not (skip_cert_validation | bool) }}"
+    return_content: true
+  register: demo_wsnap_activity_call
+  no_log: true
+
+- name: Keep the activity state and result
+  ansible.builtin.set_fact:
+    demo_wsnap_activity: "{{ {'state': demo_wsnap_activity_call.json.state, 'result': demo_wsnap_activity_call.json.result | default({})} }}"

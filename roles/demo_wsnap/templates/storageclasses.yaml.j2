@@ -1,0 +1,18 @@
+{% set _copied = ['AccessZone', 'IsiPath', 'AzServiceIP', 'ClusterName'] %}
+{# B: writable clone class. Copies the zone/path parameters of A, carries no replication keys, and enables NFS root access: the PPDM
+   data mover reads the clone as root, and the PPDM guide recommends a rootClient class for NFS temporary PVCs. #}
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ demo_wsnap_sc_name }}
+provisioner: {{ demo_wsnap_source.provisioner }}
+parameters:
+  csi-isilon.dellemc.com/writable-from-snapshot: "true"
+{% for key in _copied if key in demo_wsnap_source.parameters %}
+  {{ key }}: "{{ demo_wsnap_source.parameters[key] }}"
+{% endfor %}
+  RootClientEnabled: "true"
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+volumeBindingMode: Immediate

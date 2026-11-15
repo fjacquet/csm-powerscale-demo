@@ -1,0 +1,88 @@
+---
+# Section 01 + 03b: variables, directories, guardrails. Read-only except directories and the env file.
+- name: Assert platform and design inputs
+  ansible.builtin.assert:
+    that:
+      - platform in ['k3s', 'openshift']
+      - (platform == 'k3s') == ('k3s' in groups)
+      - sites.primary.vg_prefix != sites.secondary.vg_prefix
+      - app_namespaces | length > 0
+      - not (allow_pvc_creation_on_target | bool) or (option_a_values_path | length > 0) or platform == 'openshift'
+    fail_msg: >-
+      Invalid inputs: platform must be k3s|openshift and match the inventory (-i inventory/k3s or inventory/openshift); volumeGroupPrefix must differ per cluster;
+      option A on K3s needs option_a_values_path (see group_vars/all/main.yml).
+    quiet: true
+
+- name: Assert the OneFS passwords exist in the vault
+  ansible.builtin.assert:
+    that:
+      - vault_ps_passwords is defined
+      - vault_ps_passwords.ps1 | default('') | length > 0
+      - vault_ps_passwords.ps2 | default('') | length > 0
+    fail_msg: Create group_vars/all/vault.yml from vault.yml.example, encrypt it, and pass --ask-vault-pass.
+    quiet: true
+  when: common_require_passwords | default(false)
+
+- name: Check the 63-character volume group name limit (03b)
+  ansible.builtin.assert:
+    that: _vg_name | length <= 63
+    fail_msg: "Name too long ({{ _vg_name | length }}): {{ _vg_name }}. Shorten namespace or prefix."
+    quiet: true
+  loop: "{{ app_namespaces | product(site_list) | list }}"
+  loop_control:
+    label: "{{ _vg_name }}"
+  vars:
+    _vg_name: "{{ item.1.vg_prefix }}-{{ item.0 }}-{{ arrays[item.1.remote_array].endpoint }}-{{ rpo }}"
+
+- name: Create working directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0700"
+  loop: "{{ [dr_dir] + (site_list | map(attribute='install_dir') | list) }}"
+  when: common_create_dirs | default(true)
+
+- name: Stat kubeconfigs
+  ansible.builtin.stat:
+    path: "{{ item.kubeconfig }}"
+  loop: "{{ site_list }}"
+  loop_control:
+    label: "{{ item.id }}"
+  register: common_kubeconfigs
+
+- name: Assert kubeconfigs exist (create them with oc login / copy from the K3s VMs)
+  ansible.builtin.assert:
+    that: item.stat.exists
+    fail_msg: "{{ item.item.kubeconfig }} is missing."
+    quiet: true
+  loop: "{{ common_kubeconfigs.results }}"
+  loop_control:
+    label: "{{ item.item.id }}"
+
+- name: Read kubeconfig server lines
+  ansible.builtin.slurp:
+    src: "{{ item.kubeconfig }}"
+  loop: "{{ site_list }}"
+  loop_control:
+    label: "{{ item.id }}"
+  register: common_kubeconfig_content
+  no_log: true
+
+- name: Assert kubeconfigs do not point at localhost (remote controllers could not reach it)
+  ansible.builtin.assert:
+    that: >-
+      (item.content | b64decode | regex_findall('server:\s*(\S+)') | length > 0) and
+      (item.content | b64decode | regex_search('server:\s*https?://(127\.0\.0\.1|localhost)') is none)
+    fail_msg: "{{ item.item.kubeconfig }} server is 127.0.0.1/localhost. Fix the server: line (guide K2/K7)."
+    quiet: true
+  loop: "{{ common_kubeconfig_content.results }}"
+  loop_control:
+    label: "{{ item.item.id }}"
+  no_log: true
+
+- name: Render the operator env file (convenience for humans; Ansible never sources it)
+  ansible.builtin.template:
+    src: csm-env.sh.j2
+    dest: "{{ env_file }}"
+    mode: "0644"
+  when: common_create_dirs | default(true)

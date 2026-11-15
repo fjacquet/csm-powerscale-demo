@@ -1,0 +1,13 @@
+---
+# Primary only: on the secondary the PVC is recreated from the replica PV by `repctl create pvc` (dr_ops/bringup_ns.yml).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pgdata
+  namespace: {{ ns }}
+spec:
+  accessModes: [ReadWriteMany]
+  resources:
+    requests:
+      storage: {{ demo_pvc_size }}
+  storageClassName: {{ dr_protect_sc | to_json }}

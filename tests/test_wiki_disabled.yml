@@ -1,0 +1,14 @@
+---
+# demo_wiki_namespaces: [] must work with a vault that has no vault_wiki_* keys: the role validates its arguments and does nothing.
+# The override sits on the task (play vars lose against vars_files).
+- name: Wiki.js disabled, vault without wiki keys
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars_files: [../group_vars/all/main.yml, ../inventory/k3s/group_vars/all/platform.yml]
+  tasks:
+    - name: The role loads and does nothing
+      ansible.builtin.include_role:
+        name: demo_wiki
+      vars:
+        demo_wiki_namespaces: []

@@ -1,0 +1,34 @@
+---
+# Pure parsing, no I/O (tests/test_writable_snap_parse.yml runs this same file).
+# In:  demo_wsnap_parse_input   dict/list (API or `isi ... --format json`) or str (CLI table or JSON text)
+#      demo_wsnap_baseline      optional list of dst_path seen before the PPDM job
+#      demo_wsnap_watch_paths   optional list of src_path (OneFS directories of the watched PVs)
+# Out: demo_wsnap_writable      list of {dst_path, src_path, src_snap, created?, state?}
+#      demo_wsnap_new_entries   entries absent from the baseline and, when given, from a watched src_path
+#      demo_wsnap_unmatched     entries absent from the baseline whose src_path is NOT watched (clue when the path format is wrong)
+- name: Parse the array output into entries
+  ansible.builtin.set_fact:
+    demo_wsnap_writable: "{{ _items }}"
+  vars:
+    _in: "{{ demo_wsnap_parse_input }}"
+    _text: "{{ _in if _in is string else '' }}"
+    _is_json: "{{ _in is not string or (_text | trim is match('^[\\[{]')) }}"
+    _doc: "{{ (_text | from_json) if _in is string and _is_json else _in }}"
+    _json_items: "{{ _doc.writable if _doc is mapping else _doc }}"
+    _rows: "{{ _text.splitlines() | map('trim') | select('match', '^/') | list }}"
+    _table_items: >-
+      {{ _rows | map('regex_replace', '^(\S+)\s+(\S+)\s+(\S+)$',
+         '{"dst_path": "\1", "src_path": "\2", "src_snap": "\3"}') | map('from_json') | list }}
+    _items: "{{ _json_items if _is_json else _table_items }}"
+
+- name: Keep the entries that are new and belong to a watched source path
+  vars:
+    _after_baseline: "{{ demo_wsnap_writable | rejectattr('dst_path', 'in', demo_wsnap_baseline | default([])) | list }}"
+  ansible.builtin.set_fact:
+    demo_wsnap_unmatched: >-
+      {{ _after_baseline | rejectattr('src_path', 'in', demo_wsnap_watch_paths | default(_after_baseline | map(attribute='src_path') | list)) | list }}
+    demo_wsnap_new_entries: >-
+      {{ demo_wsnap_writable
+         | rejectattr('dst_path', 'in', demo_wsnap_baseline | default([]))
+         | selectattr('src_path', 'in', demo_wsnap_watch_paths | default(demo_wsnap_writable | map(attribute='src_path') | list))
+         | list }}

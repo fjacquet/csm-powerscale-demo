@@ -1,0 +1,23 @@
+---
+# repctl cluster add is done by the tools role. Inject writes remote-cluster configs into each controller's namespace.
+# One wiring method per cluster pair: never combine with dellctl 06_replication.yaml (K3s track).
+- name: Inject cluster configs once (marker file keeps reruns quiet)
+  ansible.builtin.shell: repctl cluster inject && date -u +%FT%TZ > {{ dr_dir }}/.repctl-injected
+  args:
+    creates: "{{ dr_dir }}/.repctl-injected"
+
+# O3a: only when the remote API FQDN does not resolve from the pods. ocp_remote_api_ips maps site id -> IP of the OTHER cluster API.
+- name: Add hostAliases to the Operator CSV for an unresolvable remote API
+  ansible.builtin.shell: |
+    set -euo pipefail
+    CSV=$(oc --kubeconfig {{ site.kubeconfig }} get csv -n {{ ocp_operator_namespace }} -o name | grep dell-csm-operator)
+    oc --kubeconfig {{ site.kubeconfig }} patch $CSV -n {{ ocp_operator_namespace }} --type=json \
+      -p='[{"op":"add","path":"/spec/install/spec/deployments/0/spec/template/spec/hostAliases","value":[{"ip":"{{ ocp_remote_api_ips[site.id] }}","hostnames":["{{ sites[site.peer].ocp_api }}"]}]}]'
+  args:
+    executable: /bin/bash
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"
+  when: site.id in ocp_remote_api_ips
+  changed_when: true

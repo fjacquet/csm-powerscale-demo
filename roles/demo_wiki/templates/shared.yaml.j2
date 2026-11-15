@@ -1,0 +1,55 @@
+---
+# Applied on BOTH sites (standby_kind.yml copies only workloads). Never put a PVC or a workload here.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wiki-db
+  namespace: {{ ns }}
+type: Opaque
+stringData:
+  POSTGRESQL_USER: {{ demo_wiki_db_user | to_json }}
+  POSTGRESQL_PASSWORD: {{ demo_wiki_db_password | to_json }}
+  POSTGRESQL_DATABASE: {{ demo_wiki_db_name | to_json }}
+  DB_TYPE: postgres
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_USER: {{ demo_wiki_db_user | to_json }}
+  DB_PASS: {{ demo_wiki_db_password | to_json }}
+  DB_NAME: {{ demo_wiki_db_name | to_json }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: {{ ns }}
+spec:
+  selector: { app: postgres }
+  ports:
+    - { port: 5432, targetPort: 5432 }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wiki
+  namespace: {{ ns }}
+spec:
+{% if platform == 'k3s' %}
+  type: LoadBalancer
+{% endif %}
+  selector: { app: wiki }
+  ports:
+    - { port: 80, targetPort: 3000 }
+{% if platform == 'openshift' %}
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: wiki
+  namespace: {{ ns }}
+spec:
+  to: { kind: Service, name: wiki }
+  port: { targetPort: 3000 } # an integer is matched against the container port, not the Service port
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+{% endif %}

@@ -1,0 +1,53 @@
+---
+# Shared assertions, imported once per track by test_wiki_templates.yml.
+- name: Render the primary-only manifests
+  ansible.builtin.set_fact:
+    _pvc: "{{ lookup('ansible.builtin.template', playbook_dir + '/../roles/demo_wiki/templates/pvc.yaml.j2') | from_yaml_all | select | list }}"
+    _work: "{{ lookup('ansible.builtin.template', playbook_dir + '/../roles/demo_wiki/templates/workloads.yaml.j2') | from_yaml_all | select | list }}"
+
+- name: Primary-only manifests carry pgdata and the Postgres Deployment without volumeClaimTemplates
+  ansible.builtin.assert:
+    that:
+      - _pvc | length == 1
+      - _pvc[0].kind == 'PersistentVolumeClaim' and _pvc[0].metadata.name == 'pgdata'
+      - _pvc[0].spec.storageClassName == 'isilon-replication'
+      - (_work | selectattr('metadata.name', 'eq', 'postgres') | list | length) == 1
+      - (_work | selectattr('metadata.name', 'eq', 'postgres') | first).spec.strategy.type == 'Recreate'
+      - (_work | selectattr('metadata.name', 'eq', 'postgres') | first).spec.template.spec.volumes | map(attribute='persistentVolumeClaim.claimName', default='') | list == ['pgdata']
+      - "'volumeClaimTemplates' not in (_work | to_json)"
+      - (_work | selectattr('metadata.name', 'eq', 'wiki') | list | length) == 1
+    quiet: true
+
+- name: Shared manifest per site has no PVC and no workload, and exposes the wiki the track's way
+  ansible.builtin.assert:
+    that:
+      - _kinds | select('in', ['PersistentVolumeClaim', 'Deployment', 'StatefulSet']) | list | length == 0
+      - "'Secret' in _kinds"
+      - (_docs | selectattr('kind', 'eq', 'Service') | map(attribute='metadata.name') | sort | list) == ['postgres', 'wiki']
+      - (platform == 'k3s') == (_lb | length == 1)
+      - (platform == 'openshift') == ('Route' in _kinds)
+      - (platform == 'k3s') or (_lb | length == 0)
+      # An integer Route targetPort is matched against the container port, not the Service port: must be the wiki's 3000.
+      - (platform != 'openshift') or ((_docs | selectattr('kind', 'eq', 'Route') | first).spec.port.targetPort == 3000)
+    quiet: true
+  loop: "{{ site_list }}"
+  loop_control:
+    label: "{{ item.id }}"
+  vars:
+    _docs: "{{ lookup('ansible.builtin.template', playbook_dir + '/../roles/demo_wiki/templates/shared.yaml.j2', template_vars={'site': item}) | from_yaml_all | select | list }}"
+    _kinds: "{{ _docs | map(attribute='kind') | list }}"
+    _lb: "{{ _docs | selectattr('kind', 'eq', 'Service') | selectattr('spec.type', 'defined') | selectattr('spec.type', 'eq', 'LoadBalancer') | list }}"
+
+- name: MetalLB pool per K3s site holds that site's range
+  ansible.builtin.assert:
+    that:
+      - _kinds | sort | list == ['IPAddressPool', 'L2Advertisement']
+      - (_docs | selectattr('kind', 'eq', 'IPAddressPool') | first).spec.addresses == [item.lb_range]
+    quiet: true
+  loop: "{{ site_list }}"
+  loop_control:
+    label: "{{ item.id }}"
+  when: platform == 'k3s'
+  vars:
+    _docs: "{{ lookup('ansible.builtin.template', playbook_dir + '/../roles/demo_wiki/templates/metallb-pool.yaml.j2', template_vars={'site': item}) | from_yaml_all | select | list }}"
+    _kinds: "{{ _docs | map(attribute='kind') | list }}"

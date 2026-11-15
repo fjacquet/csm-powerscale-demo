@@ -1,0 +1,58 @@
+---
+# E3: remove the demo workloads. Driver removal is a separate explicit flag.
+#   ansible-playbook cleanup.yml -e confirm_cleanup=yes [-e remove_driver=yes]
+- name: Cleanup
+  hosts: mgmt
+  gather_facts: true
+  pre_tasks:
+    - name: Require explicit confirmation
+      ansible.builtin.assert:
+        that: confirm_cleanup | default('no') == 'yes'
+        fail_msg: "Deletes namespaces on BOTH clusters. Re-run with -e confirm_cleanup=yes."
+        quiet: true
+  tasks:
+    - name: Delete demo namespaces on both clusters
+      kubernetes.core.k8s:
+        kubeconfig: "{{ item.0.kubeconfig }}"
+        kind: Namespace
+        name: "{{ item.1 }}"
+        state: absent
+        wait: true
+        wait_timeout: 300
+      loop: "{{ site_list | product(app_namespaces + ['rep-test']) | list }}"
+      loop_control:
+        label: "{{ item.0.id }}/{{ item.1 }}"
+
+    - name: Remove the DR bookkeeping files (state, RG map, last writes, rendered Wiki.js manifests)
+      ansible.builtin.file:
+        path: "{{ dr_dir }}/{{ item }}"
+        state: absent
+      loop: "{{ ['state', 'rg-map.txt', 'wiki'] + (app_namespaces | map('regex_replace', '^(.*)$', 'last-\\1.txt') | list) }}"
+
+    - name: Remove the Helm releases (K3s only)
+      kubernetes.core.helm:
+        kubeconfig: "{{ item.kubeconfig }}"
+        release_name: isilon
+        release_namespace: "{{ csi_ns }}"
+        release_state: absent
+      loop: "{{ site_list }}"
+      loop_control:
+        label: "{{ item.id }}"
+      when: remove_driver | default('no') == 'yes' and platform == 'k3s'
+
+    - name: Remove the ContainerStorageModule (OpenShift only)
+      kubernetes.core.k8s:
+        kubeconfig: "{{ item.kubeconfig }}"
+        api_version: storage.dell.com/v1
+        kind: ContainerStorageModule
+        name: isilon
+        namespace: "{{ csi_ns }}"
+        state: absent
+      loop: "{{ site_list }}"
+      loop_control:
+        label: "{{ item.id }}"
+      when: remove_driver | default('no') == 'yes' and platform == 'openshift'
+
+    - name: Reminder about leftovers
+      ansible.builtin.debug:
+        msg: "RGs/policies stay when retention is Retain. On the arrays remove leftover csi-pri-*/csi-sec-* SyncIQ policies only if no RG uses them."

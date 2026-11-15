@@ -1,0 +1,136 @@
+---
+# Offline test of tasks/discover_select.yml: choosing StorageClass A and the VolumeSnapshotClass, and the version cleanup used by preflight.
+- name: Writable snapshot discovery selection
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files: [../group_vars/all/main.yml]
+  vars:
+    _select: "{{ playbook_dir }}/../roles/demo_wsnap/tasks/discover_select.yml"
+    _rep: { metadata: { name: isilon-replication }, provisioner: csi-isilon.dellemc.com, parameters: { replication.storage.dell.com/isReplicationEnabled: "true" } }
+    _rep2: { metadata: { name: isilon-replication-2 }, provisioner: csi-isilon.dellemc.com, parameters: { replication.storage.dell.com/isReplicationEnabled: "true" } }
+    _plain: { metadata: { name: isilon }, provisioner: csi-isilon.dellemc.com, parameters: { IsiPath: /ifs/data/csi } }
+    _vsc1: { metadata: { name: isilon-snapclass }, driver: csi-isilon.dellemc.com }
+    _vsc2: { metadata: { name: other-snapclass }, driver: csi-isilon.dellemc.com }
+    _vsc_foreign: { metadata: { name: ebs }, driver: ebs.csi.aws.com }
+  tasks:
+    - name: Single replicated class is picked and a single csi-isilon snapshot class is reused
+      ansible.builtin.include_tasks: "{{ _select }}"
+      vars:
+        demo_wsnap_sc_list: ["{{ _plain }}", "{{ _rep }}"]
+        demo_wsnap_vsc_list: ["{{ _vsc1 }}", "{{ _vsc_foreign }}"]
+        demo_wsnap_source_sc: ""
+        demo_wsnap_snapclass: ""
+
+    - name: Check the single-class selection
+      ansible.builtin.assert:
+        that:
+          - demo_wsnap_source.metadata.name == 'isilon-replication'
+          - demo_wsnap_snapclass_selected == 'isilon-snapclass'
+          - not demo_wsnap_create_snapclass
+        quiet: true
+
+    - name: An explicit source class wins over discovery
+      ansible.builtin.include_tasks: "{{ _select }}"
+      vars:
+        demo_wsnap_sc_list: ["{{ _rep }}", "{{ _rep2 }}"]
+        demo_wsnap_vsc_list: []
+        demo_wsnap_source_sc: isilon-replication-2
+        demo_wsnap_snapclass: ""
+
+    - name: Check the explicit selection and that a missing snapshot class is marked for creation
+      ansible.builtin.assert:
+        that:
+          - demo_wsnap_source.metadata.name == 'isilon-replication-2'
+          - demo_wsnap_create_snapclass
+        quiet: true
+
+    - name: Several replicated classes without an explicit choice fail with the override hint
+      block:
+        - name: Select with two replicated classes
+          ansible.builtin.include_tasks: "{{ _select }}"
+          vars:
+            demo_wsnap_sc_list: ["{{ _rep }}", "{{ _rep2 }}"]
+            demo_wsnap_vsc_list: ["{{ _vsc1 }}"]
+            demo_wsnap_source_sc: ""
+            demo_wsnap_snapclass: ""
+        - name: Must not get here
+          ansible.builtin.fail:
+            msg: two replicated classes were accepted
+      rescue:
+        - name: The failure names the override variable
+          ansible.builtin.assert:
+            that: "'demo_wsnap_source_sc' in ansible_failed_result.msg"
+            quiet: true
+
+    - name: No replicated class fails with the override hint
+      block:
+        - name: Select with no replicated class
+          ansible.builtin.include_tasks: "{{ _select }}"
+          vars:
+            demo_wsnap_sc_list: ["{{ _plain }}"]
+            demo_wsnap_vsc_list: ["{{ _vsc1 }}"]
+            demo_wsnap_source_sc: ""
+            demo_wsnap_snapclass: ""
+        - name: Must not get here
+          ansible.builtin.fail:
+            msg: no replicated class was accepted
+      rescue:
+        - name: The failure names the override variable
+          ansible.builtin.assert:
+            that: "'demo_wsnap_source_sc' in ansible_failed_result.msg"
+            quiet: true
+
+    - name: Several csi-isilon snapshot classes without an explicit choice fail with the override hint
+      block:
+        - name: Select with two snapshot classes
+          ansible.builtin.include_tasks: "{{ _select }}"
+          vars:
+            demo_wsnap_sc_list: ["{{ _rep }}"]
+            demo_wsnap_vsc_list: ["{{ _vsc1 }}", "{{ _vsc2 }}"]
+            demo_wsnap_source_sc: ""
+            demo_wsnap_snapclass: ""
+        - name: Must not get here
+          ansible.builtin.fail:
+            msg: two snapshot classes were accepted
+      rescue:
+        - name: The failure names the override variable
+          ansible.builtin.assert:
+            that: "'demo_wsnap_snapclass' in ansible_failed_result.msg"
+            quiet: true
+
+    - name: An explicit snapshot class is accepted among several
+      ansible.builtin.include_tasks: "{{ _select }}"
+      vars:
+        demo_wsnap_sc_list: ["{{ _rep }}"]
+        demo_wsnap_vsc_list: ["{{ _vsc1 }}", "{{ _vsc2 }}"]
+        demo_wsnap_source_sc: ""
+        demo_wsnap_snapclass: other-snapclass
+
+    - name: Check the explicit snapshot class
+      ansible.builtin.assert:
+        that:
+          - demo_wsnap_snapclass_selected == 'other-snapclass'
+          - not demo_wsnap_create_snapclass
+        quiet: true
+
+    - name: Version strings from kubectl are cleaned before comparing
+      ansible.builtin.assert:
+        that:
+          - >-
+            'v1.34.1+k3s1' | regex_replace('^v?([0-9.]+).*$', '\\1') is version('1.34', '>=')
+          - >-
+            'v1.33.9' | regex_replace('^v?([0-9.]+).*$', '\\1') is version('1.34', '<')
+        quiet: true
+
+    - name: Extract the tag of an image reference, ignoring registry ports and digests
+      ansible.builtin.include_tasks: image_tag_case.yml
+      loop:
+        - { image: "dellemc/csi-isilon:v2.18.1", tag: "v2.18.1" }
+        - { image: "registry:5000/dellemc/csi-isilon", tag: "" }
+        - { image: "registry:5000/snapshot-controller:v8.5.0", tag: "v8.5.0" }
+        - { image: "quay.io/x/snapshot-controller@sha256:2a1f0c3d4b5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8", tag: "" }
+        - { image: "quay.io/x/driver:v2.18.1@sha256:2a1f", tag: "" }
+        - { image: "", tag: "" }
+      loop_control:
+        label: "{{ item.image }}"

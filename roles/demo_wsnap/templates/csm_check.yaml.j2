@@ -1,0 +1,52 @@
+{# One document set per scenario step (demo_wsnap_step): snapshot, clone, reader, probe. Everything lives in the namespace of the
+   protected PVC: the writable path forbids a snapshot from another namespace. #}
+{% set _sec = {'allowPrivilegeEscalation': false, 'capabilities': {'drop': ['ALL']}, 'seccompProfile': {'type': 'RuntimeDefault'}} %}
+{% if demo_wsnap_step in ['snapshot', 'probe'] %}
+---
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: {{ 'demo-ws-snap' if demo_wsnap_step == 'snapshot' else 'demo-ws-probe' }}
+  namespace: {{ demo_wsnap_protected_ns }}
+spec:
+  volumeSnapshotClassName: {{ demo_wsnap_snapclass_selected }}
+  source:
+    persistentVolumeClaimName: {{ demo_wsnap_protected_pvc }}
+{% elif demo_wsnap_step == 'clone' %}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: demo-ws-clone
+  namespace: {{ demo_wsnap_protected_ns }}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: {{ demo_wsnap_sc_name }}
+  resources:
+    requests:
+      storage: {{ demo_wsnap_clone_size }}
+  dataSource:
+    kind: VolumeSnapshot
+    name: demo-ws-snap
+    apiGroup: snapshot.storage.k8s.io
+{% elif demo_wsnap_step == 'reader' %}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: demo-ws-reader
+  namespace: {{ demo_wsnap_protected_ns }}
+spec:
+  restartPolicy: Never
+  containers:
+    - name: app
+      image: {{ demo_image }}
+      command: [sh, -c, "n=$(ls -A /data | wc -l); touch /data/.demo-ws-writable; echo $n"]
+      securityContext: {{ _sec | to_json }}
+      volumeMounts:
+        - { name: data, mountPath: /data }
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: demo-ws-clone
+{% endif %}

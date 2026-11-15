@@ -1,0 +1,35 @@
+---
+argument_specs:
+  main:
+    short_description: D3 to D6
+    description:
+      - 'D3 to D6: planned and unplanned failover, bring-up, reprotect, primary recovery, failback and the data check. Use
+        with tasks_from.'
+    options:
+      dr_namespaces:
+        type: list
+        description: Namespaces to act on (default app_namespaces)
+        required: false
+      repctl_wait_args:
+        type: str
+        description: Flag making repctl wait for completion
+        default: --wait
+        required: false
+      repctl_create_pvc_args:
+        type: str
+        description: Extra args for repctl create pvc (option B)
+        default: --clusters secondary
+        required: false
+      failback_mode:
+        type: str
+        description: keep or discard writes made on secondary
+        default: keep
+        choices:
+          - keep
+          - discard
+        required: false
+      demo_data_check:
+        type: bool
+        description: Capture and verify the last write per namespace
+        default: true
+        required: false

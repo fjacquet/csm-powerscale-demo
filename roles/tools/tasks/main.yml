@@ -1,0 +1,102 @@
+---
+# K2 + K5a. Default is check-only; install with -e tools_install=true (needs sudo on the management VM).
+- name: Look up tool versions
+  ansible.builtin.command: "{{ item.cmd }}"
+  loop:
+    - { name: kubectl, cmd: kubectl version --client }
+    - { name: helm, cmd: helm version --short }
+    - { name: dellctl, cmd: dellctl --version }
+    - { name: repctl, cmd: repctl --version }
+    - { name: yq, cmd: yq --version }
+  loop_control:
+    label: "{{ item.name }}"
+  register: tools_versions
+  changed_when: false
+  failed_when: false
+
+- name: Report missing tools
+  ansible.builtin.assert:
+    that: item.rc == 0
+    fail_msg: "{{ item.item.name }} not found on the management VM. Re-run with -e tools_install=true (kubectl is not installed by this repo)."
+    quiet: true
+  loop: "{{ tools_versions.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when: not (tools_install | default(false) | bool)
+
+- name: Assert dellctl belongs to the pinned CSM release
+  ansible.builtin.assert:
+    that: >-
+      csm_tools_version in (tools_versions.results[2].stdout ~ tools_versions.results[2].stderr)
+    fail_msg: "dellctl is not {{ csm_tools_version }}. A dellctl/chart mismatch shows up as 'embedded template missing driver key'. (repctl reports its own version, e.g. v1.16.0, so it is not compared.)"
+    quiet: true
+  when: tools_versions.results[2].rc == 0 and not (tools_install | default(false) | bool)
+
+- name: Install tools
+  when: tools_install | default(false) | bool
+  become: true
+  block:
+    - name: Install python deps for kubernetes.core and expect on the management VM
+      ansible.builtin.apt:
+        name: [python3-kubernetes, python3-yaml, python3-pexpect]
+        state: present
+        update_cache: true
+
+    - name: Download dellctl and repctl
+      ansible.builtin.get_url:
+        url: "{{ csm_download_base }}/{{ item.name }}"
+        dest: "/usr/local/bin/{{ item.name }}"
+        mode: "0755"
+        checksum: "{{ item.checksum }}"
+      loop:
+        - { name: dellctl, checksum: "{{ dellctl_checksum }}" }
+        - { name: repctl, checksum: "{{ repctl_checksum }}" }
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Download yq
+      ansible.builtin.get_url:
+        url: "{{ yq_url }}"
+        dest: /usr/local/bin/yq
+        mode: "0755"
+        checksum: "{{ yq_checksum }}"
+
+    - name: Install Helm 4
+      ansible.builtin.shell: "set -o pipefail; curl -fsSL {{ helm_install_script }} | DESIRED_VERSION={{ helm_version }} bash"
+      args:
+        executable: /bin/bash
+        creates: /usr/local/bin/helm
+
+- name: Add the Dell Helm repository
+  kubernetes.core.helm_repository:
+    repo_name: dell
+    repo_url: "{{ helm_chart_repo }}"
+  when: platform == 'k3s' and not (tools_check_only | default(false) | bool)
+
+- name: Read dellctl and repctl cluster registrations
+  ansible.builtin.command: "{{ item }} cluster get"
+  loop: [dellctl, repctl]
+  register: tools_cluster_get
+  changed_when: false
+  failed_when: false
+
+# dellctl and repctl keep separate cluster lists (guide K2). IDs must be exactly primary/secondary.
+- name: Register clusters with dellctl
+  ansible.builtin.command: "dellctl cluster add -n {{ item.id }} -f {{ item.kubeconfig }}"
+  loop: "{{ site_list }}"
+  loop_control:
+    label: "{{ item.id }}"
+  when: >-
+    platform == 'k3s' and not (tools_check_only | default(false) | bool)
+    and item.id not in tools_cluster_get.results[0].stdout
+  changed_when: true
+
+- name: Register clusters with repctl
+  ansible.builtin.command: >-
+    repctl cluster add
+    -f {{ site_list | map(attribute='kubeconfig') | join(',') }}
+    -n {{ site_list | map(attribute='id') | join(',') }}
+  when: >-
+    not (tools_check_only | default(false) | bool)
+    and site_list | map(attribute='id') | reject('in', tools_cluster_get.results[1].stdout) | list | length > 0
+  changed_when: true

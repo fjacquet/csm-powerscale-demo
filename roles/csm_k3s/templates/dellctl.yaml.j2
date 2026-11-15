@@ -1,0 +1,28 @@
+namespace: {{ csi_ns }}
+helm-install: true
+output: true
+snapshot-controller: true
+modules: replication
+isi-path: {{ isi_path }}
+isi-access-zone: System
+isi-auth-type: 1
+skip-certificate-validation: {{ skip_cert_validation | bool | lower }}
+storage:
+  - endpoint: {{ arrays[site.local_array].endpoint }}
+    username: {{ ps_user }}
+    cluster-name: {{ arrays[site.local_array].name }}
+    endpoint-port: 8080
+    primary: true
+  - endpoint: {{ arrays[site.remote_array].endpoint }}
+    username: {{ ps_user }}
+    cluster-name: {{ arrays[site.remote_array].name }}
+    endpoint-port: 8080
+    secondary: true
+replication:
+  sourceClusterID: {{ site.id }}
+  targetClusterID: {{ sites[site.peer].id }}
+  targetClusterIP: {{ sites[site.peer].k3s_ip }}
+  parameters:
+    rpo: {{ rpo }}
+    ignoreNamespaces: false
+    volumeGroupPrefix: {{ site.vg_prefix }}

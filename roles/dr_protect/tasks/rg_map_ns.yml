@@ -1,0 +1,19 @@
+---
+- name: "Wait until every PVC carries its replication group annotation - {{ ns }}"
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ sites.primary.kubeconfig }}"
+    kind: PersistentVolumeClaim
+    namespace: "{{ ns }}"
+  register: dr_protect_ns_pvcs
+  until: dr_protect_ns_pvcs.resources | length > 0 and (_rg_annotations | length) == (dr_protect_ns_pvcs.resources | length)
+  retries: 30
+  delay: 10
+  vars:
+    _rg_annotations: >-
+      {{ dr_protect_ns_pvcs.resources | map(attribute='metadata') | map(attribute='annotations', default={})
+         | map('dict2items') | flatten | selectattr('key', 'eq', rg_annotation_key) | map(attribute='value') | list }}
+
+- name: "Remember its RG names - {{ ns }}"
+  ansible.builtin.set_fact:
+    dr_protect_rg_pairs: "{{ (dr_protect_rg_pairs | default([])) + [{'ns': ns, 'rg': item}] }}"
+  loop: "{{ dr_protect_ns_pvcs.resources | map(attribute='metadata') | map(attribute='annotations', default={}) | map('dict2items') | flatten | selectattr('key', 'eq', rg_annotation_key) | map(attribute='value') | unique | list }}"

@@ -1,0 +1,41 @@
+---
+# ps_access=ssh: the same section 02 checks with raw `isi` over SSH (works with auth_basic = false).
+# Needs: ps_prep_array (ps1|ps2, also the inventory host name), ps_prep_apply.
+- name: Collect OneFS state
+  ansible.builtin.raw: "{{ item.cmd }}"
+  delegate_to: "{{ ps_prep_array }}"
+  loop:
+    - { key: license, cmd: isi license list }
+    - { key: nfs, cmd: isi nfs settings global view }
+    - { key: syncsvc, cmd: isi sync settings view }
+    - { key: base, cmd: "ls -ld {{ isi_path }}" }
+    - { key: user, cmd: "isi auth users view {{ ps_user }}" }
+  loop_control:
+    label: "{{ ps_prep_array }} {{ item.key }}"
+  register: ps_prep_state
+  changed_when: false
+  failed_when: false
+
+- name: Assert section 02 prerequisites
+  ansible.builtin.assert:
+    that:
+      - ps_prep_state.results | selectattr('item.key', 'eq', 'license') | map(attribute='stdout') | first is search('SyncIQ')
+      - ps_prep_state.results | selectattr('item.key', 'eq', 'license') | map(attribute='stdout') | first is search('SmartQuotas')
+      - ps_prep_state.results | selectattr('item.key', 'ne', 'license') | rejectattr('rc', 'eq', 0) | list | length == 0
+    fail_msg: >-
+      {{ ps_prep_array }} fails a section 02 prerequisite (license, NFS, SyncIQ, {{ isi_path }} or user {{ ps_user }}).
+      Run with --tags ps_configure to apply licenses, NFS, SyncIQ settings and the base path.
+    quiet: true
+  when: not ps_prep_apply
+
+- name: Apply the guide's section 02 configuration
+  ansible.builtin.raw: "{{ item }}"
+  delegate_to: "{{ ps_prep_array }}"
+  loop:
+    - isi license add --evaluation SYNCIQ,SMARTQUOTAS,SNAPSHOTIQ
+    - isi services nfs enable
+    - isi sync settings modify --service=on
+    - isi sync settings modify --encryption-required=false
+    - "mkdir -p {{ isi_path }}"
+  changed_when: true
+  when: ps_prep_apply

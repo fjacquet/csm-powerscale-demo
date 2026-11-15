@@ -1,0 +1,43 @@
+---
+# K3s track: per-platform data only. Shared settings live in the root group_vars/all/main.yml.
+platform: k3s
+
+# ---- PowerScale arrays ----
+arrays:
+  ps1: { name: ps1, endpoint: 192.168.1.20 }
+  ps2: { name: ps2, endpoint: 192.168.1.200 }
+
+# ---- Cluster sites. Cluster IDs MUST be primary/secondary (replication clusterIDs) ----
+sites:
+  primary:
+    id: primary
+    peer: secondary
+    kubeconfig: "{{ kube_dir }}/primary.yaml"
+    install_dir: "{{ base_dir }}/ps1-install"
+    dellctl_file: primary-dellctl.yaml
+    k3s_ip: 192.168.1.105
+    local_array: ps1
+    remote_array: ps2
+    vg_prefix: csi-pri # volumeGroupPrefix: MUST differ per source cluster
+    lb_range: 192.168.1.150-192.168.1.155 # MetalLB pool (Wiki.js demo): free addresses on the lab network, placeholder
+  secondary:
+    id: secondary
+    peer: primary
+    kubeconfig: "{{ kube_dir }}/secondary.yaml"
+    install_dir: "{{ base_dir }}/ps2-install"
+    dellctl_file: secondary-dellctl.yaml
+    k3s_ip: 192.168.1.107
+    local_array: ps2
+    remote_array: ps1
+    vg_prefix: csi-sec
+    lb_range: 192.168.1.160-192.168.1.165 # MetalLB pool (Wiki.js demo), placeholder
+site_list: "{{ sites.values() | list }}"
+
+# ---- Writable snapshots behind PPDM (role demo_wsnap): lab values, placeholders. Used by --tags register and the REST mode ----
+demo_wsnap_ppdm_host: ppdm.lab.example.com # PPDM FQDN or IP
+demo_wsnap_ppdm_policy: demo-wsnap-k8s # protection policy name (created by --tags register when absent)
+demo_wsnap_ppdm_datadomain: ddve.lab.example.com # Data Domain storage system name, already declared in PPDM
+demo_wsnap_k8s_api_fqdn: k3s-primary.lab.example.com # Kubernetes API server FQDN as PPDM reaches it
+demo_wsnap_k8s_api_port: 6443
+demo_wsnap_ppdm_rbac_dir: "{{ base_dir }}/ppdm-rbac" # PPDM UI > Downloads > Kubernetes > RBAC, extracted here
+# demo_wsnap_ppdm_password: from the environment (PPDM_PASSWORD) or the vault, never here

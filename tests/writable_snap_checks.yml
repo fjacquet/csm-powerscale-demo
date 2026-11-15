@@ -1,0 +1,113 @@
+---
+# Imported by test_writable_snap_templates.yml (needs the render vars of that play).
+- name: Render the StorageClass B
+  ansible.builtin.set_fact:
+    _scs: "{{ lookup('ansible.builtin.template', playbook_dir + '/../roles/demo_wsnap/templates/storageclasses.yaml.j2') | from_yaml_all | select | list }}"
+    _cms: "{{ lookup('ansible.builtin.template', playbook_dir + '/../roles/demo_wsnap/templates/configmaps.yaml.j2') | from_yaml_all | select | list }}"
+
+- name: Index the rendered objects by name
+  ansible.builtin.set_fact:
+    _b: "{{ _scs | selectattr('metadata.name', 'eq', demo_wsnap_sc_name) | first }}"
+    _cm: "{{ dict(_cms | map(attribute='metadata.name') | zip(_cms)) }}"
+
+- name: B copies the zone and path of A
+  ansible.builtin.assert:
+    that:
+      - _b.parameters.AccessZone == 'zone-x'
+      - _b.parameters.IsiPath == '/ifs/data/csi'
+      - _b.parameters.AzServiceIP == '192.168.1.20'
+      - _b.parameters.ClusterName == 'ps1'
+      - _b.reclaimPolicy == 'Delete'
+      - _b.volumeBindingMode == 'Immediate'
+    quiet: true
+
+- name: B is writable and has NFS root access (the PPDM data mover reads the clone as root)
+  ansible.builtin.assert:
+    that:
+      - _b.parameters['csi-isilon.dellemc.com/writable-from-snapshot'] == 'true'
+      - _b.parameters.RootClientEnabled == 'true'
+    quiet: true
+
+- name: B carries no replication parameters
+  ansible.builtin.assert:
+    that: (_b.parameters | dict2items | selectattr('key', 'search', 'replication.storage.dell.com') | list | length) == 0
+    quiet: true
+
+- name: The ConfigMaps live in powerprotect and map A to the snapshot class, to B, and to the data mover namespace
+  ansible.builtin.assert:
+    that:
+      - _cms | rejectattr('metadata.namespace', 'eq', 'powerprotect') | list | length == 0
+      - _cm['ppdm-snapshot-class-mapping'].data['isilon-replication'] == 'isilon-snapclass'
+      - _cm['ppdm-snapshot-storage-class-mapping'].data['isilon-replication'] == 'powerscale-writable-snapshot'
+      - _cm['ppdm-custom-namespace-storage-class-mapping'].data['isilon-replication'] == 'powerprotect'
+      - _cm['ppdm-custom-namespace-storage-class-mapping'].data['powerscale-writable-snapshot'] == 'powerprotect'
+    quiet: true
+
+- name: Render the VolumeSnapshotClass
+  ansible.builtin.set_fact:
+    _vsc: "{{ lookup('ansible.builtin.template', playbook_dir + '/../roles/demo_wsnap/templates/snapclass.yaml.j2') | from_yaml }}"
+
+- name: The created VolumeSnapshotClass targets csi-isilon and deletes the backend snapshot with the object
+  ansible.builtin.assert:
+    that:
+      - _vsc.metadata.name == 'isilon-snapclass'
+      - _vsc.driver == 'csi-isilon.dellemc.com'
+      - _vsc.deletionPolicy == 'Delete'
+    quiet: true
+
+- name: Render each step of the CSM-layer scenario
+  ansible.builtin.set_fact:
+    _steps: >-
+      {{ _steps | default({}) | combine({item: lookup('ansible.builtin.template', playbook_dir + '/../roles/demo_wsnap/templates/csm_check.yaml.j2')
+         | from_yaml_all | select | list}) }}
+  vars:
+    demo_wsnap_step: "{{ item }}"
+  loop: [snapshot, clone, reader, probe]
+
+- name: The scenario snapshots the protected replicated PVC and clones it on B, in the same namespace
+  vars:
+    _snap: "{{ _steps.snapshot | first }}"
+    _clone: "{{ _steps.clone | first }}"
+    _reader: "{{ _steps.reader | first }}"
+  ansible.builtin.assert:
+    that:
+      - _snap.metadata.namespace == 'app-a'
+      - _snap.spec.source.persistentVolumeClaimName == 'pgdata'
+      - _snap.spec.volumeSnapshotClassName == 'isilon-snapclass'
+      - _clone.metadata.namespace == 'app-a'
+      - _clone.spec.storageClassName == 'powerscale-writable-snapshot'
+      - _clone.spec.resources.requests.storage == '5Gi'
+      - _clone.spec.dataSource.kind == 'VolumeSnapshot'
+      - _clone.spec.dataSource.name == 'demo-ws-snap'
+      - _clone.spec.dataSource.apiGroup == 'snapshot.storage.k8s.io'
+      - _reader.metadata.namespace == 'app-a'
+      - _reader.spec.containers[0].image == demo_image
+      - _reader.spec.containers[0].command[-1] is search('touch')
+      - _reader.spec.volumes[0].persistentVolumeClaim.claimName == 'demo-ws-clone'
+    quiet: true
+
+- name: The probe snapshots the protected PVC in its own namespace with the selected class
+  vars:
+    _probe: "{{ _steps.probe | first }}"
+  ansible.builtin.assert:
+    that:
+      - _probe.kind == 'VolumeSnapshot'
+      - _probe.metadata.name == 'demo-ws-probe'
+      - _probe.metadata.namespace == 'app-a'
+      - _probe.spec.source.persistentVolumeClaimName == 'pgdata'
+      - _probe.spec.volumeSnapshotClassName == 'isilon-snapclass'
+    quiet: true
+
+- name: Render the PPDM discovery token Secret
+  ansible.builtin.set_fact:
+    _secret: "{{ lookup('ansible.builtin.template', playbook_dir + '/../roles/demo_wsnap/templates/ppdm_token_secret.yaml.j2') | from_yaml }}"
+
+- name: The Secret is a service-account token for ppdm-discovery-serviceaccount in the PPDM namespace
+  ansible.builtin.assert:
+    that:
+      - _secret.kind == 'Secret'
+      - _secret.type == 'kubernetes.io/service-account-token'
+      - _secret.metadata.name == 'ppdm-discovery-serviceaccount-token'
+      - _secret.metadata.namespace == 'powerprotect'
+      - _secret.metadata.annotations['kubernetes.io/service-account.name'] == 'ppdm-discovery-serviceaccount'
+    quiet: true

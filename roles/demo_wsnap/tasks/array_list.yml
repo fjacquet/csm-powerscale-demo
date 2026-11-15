@@ -1,0 +1,27 @@
+---
+# Lists the writable snapshots of the primary site's array (ps_access: api | ssh), then parses them (array_parse.yml).
+# Out: demo_wsnap_writable, demo_wsnap_new_entries (see array_parse.yml for the optional baseline/watch inputs).
+# shortcut: API first page only (limit=1000), no `resume` paging; upgrade if a lab ever holds more writable snapshots.
+- name: Read the writable snapshots through the OneFS API
+  ansible.builtin.uri:
+    url: "https://{{ arrays[demo_wsnap_site.local_array].endpoint }}:{{ ps_conn[demo_wsnap_site.local_array].port_no }}/platform/14/snapshot/writable?limit=1000"
+    user: "{{ ps_conn[demo_wsnap_site.local_array].api_user }}"
+    password: "{{ ps_conn[demo_wsnap_site.local_array].api_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ ps_conn[demo_wsnap_site.local_array].verify_ssl }}"
+    return_content: true
+  register: demo_wsnap_api
+  no_log: true
+  when: ps_access == 'api'
+
+- name: Read the writable snapshots over SSH
+  ansible.builtin.raw: isi snapshot writable list --format json
+  delegate_to: "{{ demo_wsnap_site.local_array }}"
+  register: demo_wsnap_ssh
+  changed_when: false
+  when: ps_access == 'ssh'
+
+- name: Parse the answer
+  ansible.builtin.include_tasks: array_parse.yml
+  vars:
+    demo_wsnap_parse_input: "{{ demo_wsnap_api.json if ps_access == 'api' else demo_wsnap_ssh.stdout }}"

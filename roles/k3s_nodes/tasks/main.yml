@@ -1,0 +1,42 @@
+---
+# K1: NFS client on each K3s node, reachability to both arrays and to the other cluster's API.
+- name: Install the NFS client and netcat
+  ansible.builtin.apt:
+    name: [nfs-common, netcat-openbsd]
+    state: present
+    update_cache: true
+  when: not (k3s_nodes_check_only | default(false) | bool)
+
+- name: Confirm the NFS client is installed
+  ansible.builtin.package_facts:
+    manager: apt
+
+- name: Assert nfs-common is present
+  ansible.builtin.assert:
+    that: "'nfs-common' in ansible_facts.packages"
+    fail_msg: nfs-common missing on {{ inventory_hostname }}.
+    quiet: true
+
+- name: Reach both PowerScale clusters (API 8080, NFS 2049, rpcbind 111)
+  ansible.builtin.wait_for:
+    host: "{{ item.0.endpoint }}"
+    port: "{{ item.1 }}"
+    timeout: 5
+  loop: "{{ arrays.values() | list | product([8080, 2049, 111]) | list }}"
+  loop_control:
+    label: "{{ item.0.name }}:{{ item.1 }}"
+
+- name: OneFS API answers (HTTP 401 means reachable and authenticated-only)
+  ansible.builtin.uri:
+    url: "https://{{ item.endpoint }}:8080/platform/latest"
+    validate_certs: false
+    status_code: [401]
+  loop: "{{ arrays.values() | list }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Reach the OTHER cluster's API (replication controller traffic)
+  ansible.builtin.wait_for:
+    host: "{{ sites[sites[site].peer].k3s_ip }}"
+    port: 6443
+    timeout: 5

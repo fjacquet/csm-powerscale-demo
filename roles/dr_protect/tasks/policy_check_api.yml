@@ -1,0 +1,18 @@
+---
+# Existence probe through the PAPI (a policy GET returns 404 until CSM creates it); the synciqpolicy module is not
+# a reliable probe because it needs create parameters when the policy is missing.
+- name: One SyncIQ policy per namespace exists on ps1
+  ansible.builtin.uri:
+    url: "https://{{ arrays.ps1.endpoint }}:8080/platform/latest/sync/policies/{{ sites.primary.vg_prefix }}-{{ item }}-{{ arrays.ps2.endpoint }}-{{ rpo }}"
+    url_username: "{{ ps_conn.ps1.api_user }}"
+    url_password: "{{ ps_conn.ps1.api_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ ps_conn.ps1.verify_ssl }}"
+    status_code: [200, 404]
+  loop: "{{ app_namespaces }}"
+  register: dr_protect_policies
+  until: dr_protect_policies.status == 200
+  retries: 18
+  delay: 10
+  changed_when: false
+  no_log: true

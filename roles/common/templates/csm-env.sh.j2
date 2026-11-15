@@ -1,0 +1,16 @@
+# {{ ansible_managed }}
+# Convenience for the human operator (guide section 01). Ansible does not source this file.
+export CSI_NS={{ csi_ns }}
+export CHART_VERSION={{ chart_version }}
+export CSM_VERSION={{ csm_version }}
+export RPO={{ rpo }}
+export APP_NAMESPACES="{{ app_namespaces | join(' ') }}"
+export DR_DIR={{ dr_dir }}
+export PS1_DIR={{ sites.primary.install_dir }}
+export PS2_DIR={{ sites.secondary.install_dir }}
+unalias hp hs kp ks 2>/dev/null
+function hp { helm    --kubeconfig {{ sites.primary.kubeconfig }}   "$@"; }
+function hs { helm    --kubeconfig {{ sites.secondary.kubeconfig }} "$@"; }
+function kp { kubectl --kubeconfig {{ sites.primary.kubeconfig }}   "$@"; }
+function ks { kubectl --kubeconfig {{ sites.secondary.kubeconfig }} "$@"; }
+function rg_for_ns { $1 get pvc -n $2 -o jsonpath='{range .items[*]}{.metadata.annotations.{{ rg_annotation_key | replace('.', '\\.') }}}{"\n"}{end}' | sed '/^$/d' | sort -u; }

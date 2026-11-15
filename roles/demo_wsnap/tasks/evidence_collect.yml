@@ -1,0 +1,26 @@
+---
+# Pure (tests/test_writable_snap_evidence.yml runs this same file): folds one polling tick into the evidence state.
+# In:  demo_wsnap_objects_now (volumesnapshot/pvc names), demo_wsnap_new_entries, demo_wsnap_state_now ('' without REST),
+#      demo_wsnap_tick_time, and the running state: demo_wsnap_events, _seen, _known_objects, _last_state.
+# Out: the same four running variables updated, and demo_wsnap_done.
+- name: Fold the tick into the evidence
+  vars:
+    _t: "{{ demo_wsnap_tick_time }}"
+    _new_objects: "{{ demo_wsnap_objects_now | difference(demo_wsnap_known_objects) }}"
+    _seen_paths: "{{ demo_wsnap_seen | map(attribute='dst_path') | list }}"
+    _new_writable: "{{ demo_wsnap_new_entries | rejectattr('dst_path', 'in', _seen_paths) | list }}"
+    _state_changed: "{{ demo_wsnap_state_now | length > 0 and demo_wsnap_state_now != demo_wsnap_last_state }}"
+    _cluster_events: >-
+      {{ _new_objects | map('regex_replace', '^(.*)$', '{"t": "' ~ _t ~ '", "source": "cluster", "text": "\1 created"}') | map('from_json') | list }}
+    _array_events: >-
+      {{ _new_writable | map(attribute='dst_path')
+         | map('regex_replace', '^(.*)$', '{"t": "' ~ _t ~ '", "source": "array", "text": "Writable snapshot \1"}') | map('from_json') | list }}
+    _ppdm_events: "{{ [{'t': _t, 'source': 'ppdm', 'text': 'Activity ' ~ demo_wsnap_state_now}] if _state_changed else [] }}"
+  ansible.builtin.set_fact:
+    demo_wsnap_known_objects: "{{ demo_wsnap_objects_now }}"
+    demo_wsnap_seen: "{{ demo_wsnap_seen + _new_writable }}"
+    demo_wsnap_events: "{{ demo_wsnap_events + _cluster_events + _array_events + _ppdm_events }}"
+    demo_wsnap_last_state: "{{ demo_wsnap_state_now if _state_changed else demo_wsnap_last_state }}"
+    demo_wsnap_done: >-
+      {{ demo_wsnap_state_now == 'COMPLETED'
+         or ((demo_wsnap_seen + _new_writable) | length > 0 and demo_wsnap_new_entries | length == 0) }}

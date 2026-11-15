@@ -1,0 +1,32 @@
+---
+argument_specs:
+  main:
+    short_description: D1, D1a, D2
+    description:
+      - 'D1, D1a, D2: demo workloads per namespace, namespace to RG map, SyncIQ policy check and standby Deployments on the
+        failover cluster.'
+    options:
+      replication_sc_name:
+        type: str
+        description: Override the auto-detected replication StorageClass
+        required: false
+      allow_rerun_after_failover:
+        type: bool
+        description: Allow re-running while secondary is the active site
+        default: false
+        required: false
+      rg_annotation_key:
+        type: str
+        description: 'PVC annotation holding the RG name (guide: verify)'
+        default: replication.storage.dell.com/replicationGroupName
+        required: false
+      demo_pvc_size:
+        type: str
+        description: Demo PVC size
+        default: 5Gi
+        required: false
+      demo_image:
+        type: str
+        description: Demo writer image
+        default: busybox:1.36
+        required: false

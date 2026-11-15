@@ -1,0 +1,24 @@
+---
+# Needs: ns. Finalizes the Wiki.js 2 setup wizard (admin account, site URL) so the demo opens on a ready wiki.
+# verify: endpoint and payload of the Wiki.js 2 setup (POST /finalize). Success = HTTP 200 and ok=true (Wiki.js can answer 200 with ok=false). Once finalized the endpoint is gone: no change.
+# On failure the demo still works: finish the wizard by hand once on the primary (docs/USER_GUIDE.md); the data then replicates.
+- name: Read the primary URL
+  ansible.builtin.include_tasks: urls.yml
+  vars:
+    demo_wiki_site: "{{ sites.primary }}"
+
+- name: Finalize the setup wizard
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ sites.primary.kubeconfig }} -n {{ ns }} exec -i deploy/wiki --
+    node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',async()=>{const r=await fetch('http://localhost:3000/finalize',{method:'POST',headers:{'content-type':'application/json'},body:s});let j={};try{j=await r.json()}catch(e){};console.log(r.status+':'+j.ok)})"
+  args:
+    stdin: "{{ {'adminEmail': demo_wiki_admin_email, 'adminPassword': demo_wiki_admin_password, 'adminPasswordConfirm': demo_wiki_admin_password, 'siteUrl': demo_wiki_url, 'telemetry': false} | to_json }}"
+  register: demo_wiki_finalize
+  changed_when: demo_wiki_finalize.stdout | trim == '200:true'
+  failed_when: false
+  no_log: true # the request body holds the admin password
+
+- name: Tell when the wizard was not finalized
+  ansible.builtin.debug:
+    msg: "Wiki.js setup not finalized here (already done, rejected input, or the endpoint differs). If the page asks for setup, run the wizard by hand once at {{ demo_wiki_url }}."
+  when: demo_wiki_finalize.stdout | default('') | trim != '200:true'

@@ -1,0 +1,26 @@
+---
+- name: Assert the K3s track is selected and the OpenShift wiring is not used
+  ansible.builtin.assert:
+    that: platform == 'k3s'
+    fail_msg: This role is the K3s track (Part B). On OpenShift use roles csm_ocp (one wiring method per cluster pair).
+    quiet: true
+  tags: [always]
+
+- name: K3 - dellctl configuration files
+  ansible.builtin.import_tasks: configs.yml
+  tags: [k3]
+- name: K4 - generate values + manifest with dellctl
+  ansible.builtin.import_tasks: generate.yml
+  tags: [k4]
+- name: K5 - split the manifest, tune values, apply prerequisites
+  ansible.builtin.import_tasks: prereqs.yml
+  tags: [k5]
+- name: K6 - Helm install and replication wiring
+  ansible.builtin.import_tasks: helm.yml
+  tags: [k6]
+- name: K7/K8 - verify
+  ansible.builtin.import_tasks: verify.yml
+  tags: [k7, k8]
+- name: K9 - single-namespace smoke test (opt-in)
+  ansible.builtin.import_tasks: smoke.yml
+  tags: [smoke, never]

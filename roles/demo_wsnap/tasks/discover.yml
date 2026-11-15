@@ -1,0 +1,22 @@
+---
+# Reads the primary cluster, then selects StorageClass A and the VolumeSnapshotClass (discover_select.yml).
+- name: List the StorageClasses
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ demo_wsnap_site.kubeconfig }}"
+    api_version: storage.k8s.io/v1
+    kind: StorageClass
+  register: demo_wsnap_scs
+
+- name: List the VolumeSnapshotClasses (tolerates missing CRDs; preflight reports them)
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ demo_wsnap_site.kubeconfig }}"
+    api_version: snapshot.storage.k8s.io/v1
+    kind: VolumeSnapshotClass
+  register: demo_wsnap_vscs
+  failed_when: false
+
+- name: Select the classes
+  ansible.builtin.include_tasks: discover_select.yml
+  vars:
+    demo_wsnap_sc_list: "{{ demo_wsnap_scs.resources }}"
+    demo_wsnap_vsc_list: "{{ demo_wsnap_vscs.resources | default([]) }}"

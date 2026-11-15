@@ -1,0 +1,7 @@
+---
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: {{ demo_wsnap_snapclass_selected }}
+driver: csi-isilon.dellemc.com
+deletionPolicy: Delete

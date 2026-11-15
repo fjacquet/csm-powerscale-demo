@@ -1,0 +1,22 @@
+---
+- name: Disable the CSM SyncIQ policy of each namespace on ps1
+  ansible.builtin.raw: "isi sync policies modify {{ item }} --enabled false"
+  delegate_to: ps1
+  loop: "{{ dr_ops_policy_names }}"
+  changed_when: true
+
+- name: Read each policy back
+  ansible.builtin.raw: "isi sync policies view {{ item }}"
+  delegate_to: ps1
+  loop: "{{ dr_ops_policy_names }}"
+  register: dr_ops_ps1_after
+  changed_when: false
+
+- name: Assert every policy is disabled
+  ansible.builtin.assert:
+    that: item.stdout is search('Enabled:\\s+No')
+    fail_msg: "Policy {{ item.item }} is still enabled on ps1."
+    quiet: true
+  loop: "{{ dr_ops_ps1_after.results }}"
+  loop_control:
+    label: "{{ item.item }}"

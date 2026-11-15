@@ -1,0 +1,31 @@
+---
+# Offline golden test: the rendered dellctl configs must match the line layout of the guide's K3 expected output
+# (grep -nE "namespace|isi-path|endpoint:|username|cluster-name|targetClusterIP").
+- name: Render and compare the dellctl configs
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars_files: [../group_vars/all/main.yml, ../inventory/k3s/group_vars/all/platform.yml]
+  vars:
+    _expect:
+      primary: ["1:namespace: isilon", "6:isi-path: /ifs/data/csi", "11:  - endpoint: 192.168.1.20", "12:    username: csi-user", "13:    cluster-name: ps1",
+                "16:  - endpoint: 192.168.1.200", "17:    username: csi-user", "18:    cluster-name: ps2", "24:  targetClusterIP: 192.168.1.107"]
+      secondary: ["1:namespace: isilon", "6:isi-path: /ifs/data/csi", "11:  - endpoint: 192.168.1.200", "12:    username: csi-user", "13:    cluster-name: ps2",
+                  "16:  - endpoint: 192.168.1.20", "17:    username: csi-user", "18:    cluster-name: ps1", "24:  targetClusterIP: 192.168.1.105"]
+  tasks:
+    - name: Compare against the guide
+      ansible.builtin.assert:
+        that:
+          - _lines | length == 28
+          - _grep == _expect[item.id]
+        fail_msg: "{{ item.id }} differs: {{ _grep }}"
+        quiet: true
+      loop: "{{ site_list }}"
+      loop_control:
+        label: "{{ item.id }}"
+      vars:
+        _txt: "{{ lookup('ansible.builtin.template', playbook_dir + '/../roles/csm_k3s/templates/dellctl.yaml.j2', template_vars={'site': item}) }}"
+        _lines: "{{ _txt.split('\n') | select | list }}"
+        _grep: >-
+          {{ _lines | zip(range(1, 100)) | selectattr('0', 'match', '^(namespace|isi-path|  - endpoint:|    username|    cluster-name|  targetClusterIP)')
+             | map('reverse') | map('join', ':') | list }}

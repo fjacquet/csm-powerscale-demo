@@ -1,0 +1,26 @@
+---
+# D5: back to primary. -e failback_mode=keep (default, keep secondary writes) | discard (extra confirm).
+- name: Fail back to primary
+  hosts: mgmt
+  gather_facts: true
+  pre_tasks:
+    - name: Require explicit confirmation
+      ansible.builtin.assert:
+        that:
+          - confirm_failback | default('no') == 'yes'
+          - failback_mode | default('keep') in ['keep', 'discard']
+          - failback_mode | default('keep') != 'discard' or confirm_discard | default('no') == 'yes'
+        fail_msg: "Re-run with -e confirm_failback=yes. failback_mode=discard also needs -e confirm_discard=yes (it DROPS secondary writes)."
+        quiet: true
+  tasks:
+    - name: D5 - failback
+      ansible.builtin.import_role:
+        name: dr_ops
+        tasks_from: failback.yml
+    - name: D6 - data check on primary
+      ansible.builtin.import_role:
+        name: dr_ops
+        tasks_from: check_data.yml
+      vars:
+        dr_ops_check_site: primary
+      when: demo_data_check | bool and failback_mode | default('keep') == 'keep'

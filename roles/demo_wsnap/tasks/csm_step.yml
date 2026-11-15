@@ -1,0 +1,13 @@
+---
+# Needs: demo_wsnap_step (base|writer|snapshot|mutator|clone|reader). Renders the step and applies it.
+- name: Render the scenario step
+  ansible.builtin.template:
+    src: csm_check.yaml.j2
+    dest: "{{ dr_dir }}/writable/csm-{{ demo_wsnap_step }}.yaml"
+    mode: "0600"
+
+- name: Apply the scenario step
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} apply -f {{ dr_dir }}/writable/csm-{{ demo_wsnap_step }}.yaml
+  register: demo_wsnap_step_applied
+  changed_when: "'created' in demo_wsnap_step_applied.stdout or 'configured' in demo_wsnap_step_applied.stdout"

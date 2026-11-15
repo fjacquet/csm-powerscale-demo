@@ -1,0 +1,9 @@
+---
+profile: production
+exclude_paths:
+  - collections/
+  - .venv/
+  - artifacts/
+  - roles/common/molecule/default/fixtures/
+skip_list:
+  - yaml[line-length]

@@ -1,0 +1,12 @@
+---
+# Before a clone or a PPDM job: the watched path and the baseline of writable snapshots already on the array.
+# Always recomputed, so a baseline left by an earlier phase is never reused.
+- name: Find the OneFS directory of the protected volume
+  ansible.builtin.include_tasks: protected_path.yml
+
+- name: Record the writable snapshots present before
+  ansible.builtin.include_tasks: array_list.yml
+
+- name: Remember the baseline
+  ansible.builtin.set_fact:
+    demo_wsnap_baseline: "{{ demo_wsnap_writable | map(attribute='dst_path') | list }}"

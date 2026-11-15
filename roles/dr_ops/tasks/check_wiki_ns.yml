@@ -1,0 +1,36 @@
+---
+# Wiki.js namespaces: the marker row written before the move must be in the replicated database. PostgreSQL may still be
+# starting on the target site (scale_up does not order the workloads): retry.
+- name: "Stat the stored marker - {{ ns }}"
+  ansible.builtin.stat:
+    path: "{{ dr_dir }}/last-{{ ns }}.txt"
+  register: dr_ops_wiki_marker_stat
+
+- name: "Assert a marker was stored before the move - {{ ns }}"
+  ansible.builtin.assert:
+    that: dr_ops_wiki_marker_stat.stat.exists
+    fail_msg: "No marker stored for {{ ns }}: nothing to compare (was PostgreSQL running before the failover?)."
+    quiet: true
+
+- name: "Read the stored marker - {{ ns }}"
+  ansible.builtin.slurp:
+    src: "{{ dr_dir }}/last-{{ ns }}.txt"
+  register: dr_ops_wiki_marker_file
+
+- name: "Search it in the replicated database - {{ ns }}"
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ sites[dr_ops_check_site | default('secondary')].kubeconfig }} -n {{ ns }} exec deploy/postgres --
+    psql -qtA -U {{ demo_wiki_db_user }} -d {{ demo_wiki_db_name }}
+    -c "SELECT count(*) FROM dr_marker WHERE ts = '{{ dr_ops_wiki_marker_file.content | b64decode | trim }}'"
+  register: dr_ops_wiki_found
+  changed_when: false
+  failed_when: false
+  until: dr_ops_wiki_found.stdout | trim == '1'
+  retries: 30
+  delay: 10
+
+- name: "Verdict - {{ ns }}"
+  ansible.builtin.assert:
+    that: dr_ops_wiki_found.stdout | trim == '1'
+    success_msg: "{{ ns }}: marker row present"
+    fail_msg: "{{ ns }}: MISSING - check the final sync / RPO (or PostgreSQL did not start)"

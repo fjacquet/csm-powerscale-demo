@@ -1,0 +1,10 @@
+---
+# D6 data check on demand: -e dr_ops_check_site=secondary (default) | primary
+- name: Data check
+  hosts: mgmt
+  gather_facts: true
+  tasks:
+    - name: Last primary write must exist in the replicated log
+      ansible.builtin.import_role:
+        name: dr_ops
+        tasks_from: check_data.yml

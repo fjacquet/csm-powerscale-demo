@@ -1,0 +1,18 @@
+[project]
+name = "csm-powerscale-demo"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "ansible-core>=2.21.6",
+    "ansible-lint>=26.11.0",
+    "isilon-sdk==0.7.0",
+    "jmespath>=1.1.0",
+    "kubernetes>=37.0.2",
+    "pyyaml>=6.0.3",
+    "yamllint>=1.38.0",
+]
+
+[dependency-groups]
+dev = [
+    "molecule>=26.11.0",
+]

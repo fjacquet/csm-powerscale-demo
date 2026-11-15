@@ -1,0 +1,18 @@
+---
+- name: Assert passwords are available
+  ansible.builtin.assert:
+    that:
+      - vault_ps_passwords.ps1 | default('') | length > 0
+      - vault_ps_passwords.ps2 | default('') | length > 0
+    fail_msg: Create and encrypt group_vars/all/vault.yml and pass --ask-vault-pass.
+    quiet: true
+
+- name: Install the driver on each cluster
+  ansible.builtin.include_tasks:
+    file: o4_site.yml
+    apply:
+      tags: [o4]
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"

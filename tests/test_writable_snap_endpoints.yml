@@ -1,0 +1,44 @@
+---
+# Every method+path that tasks/ppdm_api.yml, ppdm_login.yml, ppdm_register.yml and ppdm_activity.yml call must exist in the PPDM 20.3 OpenAPI; the server port must match.
+- name: PPDM endpoints used by the role exist in the 20.3 OpenAPI
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    _spec1: "{{ lookup('ansible.builtin.file', playbook_dir + '/../docs/openapi/21201-20.3.0.json') | from_json }}"
+    _spec2: "{{ lookup('ansible.builtin.file', playbook_dir + '/../docs/openapi/21202-20.3.0.json') | from_json }}"
+    _src: >-
+      {{ lookup('ansible.builtin.file', playbook_dir + '/../roles/demo_wsnap/tasks/ppdm_api.yml') }}
+      {{ lookup('ansible.builtin.file', playbook_dir + '/../roles/demo_wsnap/tasks/ppdm_activity.yml') }}
+      {{ lookup('ansible.builtin.file', playbook_dir + '/../roles/demo_wsnap/tasks/ppdm_login.yml') }}
+      {{ lookup('ansible.builtin.file', playbook_dir + '/../roles/demo_wsnap/tasks/ppdm_register.yml') }}
+    _calls: >-
+      {{ _src | regex_findall('method: (\w+)\s+url: "[^"]*?(/api/v[23]/[^"?]*)') }}
+  tasks:
+    - name: The role calls the expected operations
+      ansible.builtin.assert:
+        that: _calls | length >= 17
+        fail_msg: "The PPDM task files call {{ _calls | length }} endpoint(s), expected at least 17 (login, clusters, policies, protections, activities, credentials, certificates, inventory, discoveries, assets, storage systems, assignments)."
+        quiet: true
+
+    - name: Each call is a documented operation
+      vars:
+        _method: "{{ item[0] | lower }}"
+        _path: "{{ item[1] | regex_replace('\\{\\{[^}]*\\}\\}', '{}') }}"
+        _paths: "{{ dict((_spec1.paths | combine(_spec2.paths)).items() | map('first') | map('regex_replace', '\\{[^}]*\\}', '{}') | zip((_spec1.paths | combine(_spec2.paths)).values())) }}"
+      ansible.builtin.assert:
+        that:
+          - _path in _paths
+          - _method in _paths[_path]
+        fail_msg: "{{ item[0] }} {{ item[1] }} is not in the 20.3 OpenAPI (specs 21201/21202)."
+        quiet: true
+      loop: "{{ _calls }}"
+      loop_control:
+        label: "{{ item[0] }} {{ item[1] }}"
+
+    - name: The server port is 8443
+      ansible.builtin.assert:
+        that:
+          - _spec1.servers[0].url is search(':8443$')
+          - _spec2.servers[0].url is search(':8443$')
+        quiet: true

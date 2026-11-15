@@ -1,0 +1,26 @@
+{# PPDM controller ConfigMaps (PowerProtect Data Manager 20.3 Kubernetes guide). A = StorageClass of the protected PVC, B = writable class. #}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ppdm-snapshot-class-mapping
+  namespace: powerprotect
+data:
+  {{ demo_wsnap_source.metadata.name }}: {{ demo_wsnap_snapclass_selected }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ppdm-snapshot-storage-class-mapping
+  namespace: powerprotect
+data:
+  {{ demo_wsnap_source.metadata.name }}: {{ demo_wsnap_sc_name }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ppdm-custom-namespace-storage-class-mapping
+  namespace: powerprotect
+data:
+  {{ demo_wsnap_source.metadata.name }}: {{ demo_wsnap_datamover_ns }}
+  {{ demo_wsnap_sc_name }}: {{ demo_wsnap_datamover_ns }}

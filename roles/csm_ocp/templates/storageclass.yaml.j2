@@ -1,0 +1,26 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: isilon-replication
+provisioner: csi-isilon.dellemc.com
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+volumeBindingMode: Immediate
+parameters:
+  {{ sc_param_prefix }}/isReplicationEnabled: "true"
+  {{ sc_param_prefix }}/remoteStorageClassName: "isilon-replication"
+  {{ sc_param_prefix }}/remoteClusterID: "{{ site.peer }}"
+  {{ sc_param_prefix }}/remoteSystem: "{{ arrays[site.remote_array].name }}"
+  {{ sc_param_prefix }}/remoteAccessZone: System
+  {{ sc_param_prefix }}/remoteAzServiceIP: "{{ arrays[site.remote_array].endpoint }}"
+  {{ sc_param_prefix }}/remoteRootClientEnabled: "false"
+  {{ sc_param_prefix }}/rpo: {{ rpo }}
+  {{ sc_param_prefix }}/ignoreNamespaces: "false"
+  {{ sc_param_prefix }}/volumeGroupPrefix: "{{ site.vg_prefix }}"
+  {{ retention_pv_param }}: "{{ csm_retention_policy }}"
+  {{ retention_rg_param }}: "{{ csm_retention_policy }}"
+  AccessZone: System
+  AzServiceIP: "{{ arrays[site.local_array].endpoint }}"
+  IsiPath: {{ isi_path }}
+  RootClientEnabled: "false"
+  ClusterName: "{{ arrays[site.local_array].name }}"

@@ -1,0 +1,5 @@
+---
+# Pure. In: demo_wsnap_seen (every new writable snapshot of the watched path seen during the job). Out: demo_wsnap_verdict.
+- name: Decide the verdict
+  ansible.builtin.set_fact:
+    demo_wsnap_verdict: "{{ 'OBSERVED' if demo_wsnap_seen | length > 0 else 'NOT OBSERVED' }}"

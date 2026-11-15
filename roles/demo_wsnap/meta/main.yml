@@ -1,0 +1,17 @@
+---
+galaxy_info:
+  author: Fred Jacquet
+  namespace: fjacquet
+  role_name: demo_wsnap
+  description: 'Experiment: observe PowerScale writable snapshots during a PPDM backup of a PV (CSM layer + PPDM layer). Use with tasks_from.'
+  license: Apache-2.0
+  min_ansible_version: '2.16'
+  platforms:
+    - name: GenericLinux
+      versions:
+        - all
+  galaxy_tags:
+    - powerscale
+    - csm
+    - ppdm
+dependencies: []

@@ -1,0 +1,106 @@
+---
+argument_specs:
+  main:
+    short_description: Writable snapshots behind PPDM backups (experiment)
+    description:
+      - 'Validates the inputs and selects the primary site. Phases: preflight, storage, csm_check, ppdm_config, ppdm_api, evidence, cleanup (tasks_from).'
+    options:
+      demo_wsnap_sc_name:
+        type: str
+        description: StorageClass B that provisions the writable clone
+        default: powerscale-writable-snapshot
+        required: false
+      demo_wsnap_source_sc:
+        type: str
+        description: StorageClass A of the protected PVC; empty means the single class with isReplicationEnabled
+        default: ""
+        required: false
+      demo_wsnap_snapclass:
+        type: str
+        description: VolumeSnapshotClass; empty means the single csi-isilon class (created when none exists)
+        default: ""
+        required: false
+      demo_wsnap_datamover_ns:
+        type: str
+        description: Namespace where PPDM runs the data mover for A and B
+        default: powerprotect
+        required: false
+      demo_wsnap_ppdm_automate:
+        type: bool
+        description: Drive PPDM through its REST API (needs host and password)
+        default: false
+        required: false
+      demo_wsnap_ppdm_host:
+        type: str
+        description: PPDM FQDN or IP (required when demo_wsnap_ppdm_automate is true)
+        default: ""
+        required: false
+      demo_wsnap_ppdm_user:
+        type: str
+        description: PPDM API user
+        default: admin
+        required: false
+      demo_wsnap_ppdm_policy:
+        type: str
+        description: Name of an existing PPDM protection policy covering the protected namespace (required when demo_wsnap_ppdm_automate is true)
+        default: ""
+        required: false
+      demo_wsnap_ppdm_password:
+        type: str
+        description: PPDM API password (environment or vault; required when demo_wsnap_ppdm_automate is true)
+        no_log: true
+        required: false
+      demo_wsnap_poll_seconds:
+        type: int
+        description: Polling interval of the evidence phase
+        default: 5
+        required: false
+      demo_wsnap_evidence_timeout:
+        type: int
+        description: Maximum seconds the evidence phase waits for the PPDM job
+        default: 1800
+        required: false
+      demo_wsnap_remove_sc:
+        type: str
+        description: 'Cleanup phase: set to "yes" to also delete StorageClasses B and C'
+        default: "no"
+        required: false
+      demo_wsnap_protected_ns:
+        type: str
+        description: Namespace of the PVC that PPDM protects (default the first Wiki.js namespace)
+        required: false
+      demo_wsnap_protected_pvc:
+        type: str
+        description: Name of the PVC that PPDM protects
+        default: pgdata
+        required: false
+      demo_wsnap_probe_snapshot:
+        type: bool
+        description: Preflight creates then deletes one VolumeSnapshot of the protected PVC to check that CSI snapshots work on its class
+        default: true
+        required: false
+      demo_wsnap_ppdm_datadomain:
+        type: str
+        description: Name of the Data Domain storage system already declared in PPDM (target of the policy; lab value)
+        default: ""
+        required: false
+      demo_wsnap_k8s_api_fqdn:
+        type: str
+        description: FQDN of the Kubernetes API server as PPDM reaches it (asset source address; lab value)
+        default: ""
+        required: false
+      demo_wsnap_k8s_api_port:
+        type: int
+        description: Port of the Kubernetes API server (6443 on K3s and OpenShift)
+        default: 6443
+        required: false
+      demo_wsnap_ppdm_rbac_dir:
+        type: str
+        description: Directory where the PPDM RBAC archive (PPDM UI, Downloads, Kubernetes, RBAC) is extracted (lab value)
+        default: ""
+        required: false
+      demo_wsnap_ppdm_sa_ns:
+        type: str
+        description: Namespace of the ppdm-discovery-serviceaccount
+        default: powerprotect
+        required: false

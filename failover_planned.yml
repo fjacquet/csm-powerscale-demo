@@ -1,0 +1,26 @@
+---
+# Planned failover primary -> secondary (D3a + D3b). Usage:
+#   ansible-playbook failover_planned.yml -e confirm_failover=yes [-e '{"only_namespaces":["app-b"]}']
+- name: Planned failover
+  hosts: mgmt
+  gather_facts: true
+  pre_tasks:
+    - name: Require explicit confirmation
+      ansible.builtin.assert:
+        that: confirm_failover | default('no') == 'yes'
+        fail_msg: "This stops workloads on primary and promotes secondary. Re-run with -e confirm_failover=yes."
+        quiet: true
+  tasks:
+    - name: D3a - stop writers and fail over
+      ansible.builtin.import_role:
+        name: dr_ops
+        tasks_from: failover_planned.yml
+    - name: D3b - bring the applications up on secondary
+      ansible.builtin.import_role:
+        name: dr_ops
+        tasks_from: bringup.yml
+    - name: D6 - data check
+      ansible.builtin.import_role:
+        name: dr_ops
+        tasks_from: check_data.yml
+      when: demo_data_check | bool

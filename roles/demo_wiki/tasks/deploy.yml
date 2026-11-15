@@ -1,0 +1,40 @@
+---
+# Needs: ns, dr_protect_sc. PVC and workloads go to the primary only (the secondary PVC comes from `repctl create pvc`);
+# the Secret, Services and Route/LoadBalancer go to both sites.
+- name: Assert the Wiki.js passwords are set in the vault
+  ansible.builtin.assert:
+    that:
+      - demo_wiki_db_password | length > 0
+      - demo_wiki_admin_password | length > 0
+    fail_msg: "Set vault_wiki_db_password and vault_wiki_admin_password in group_vars/all/vault.yml (see vault.yml.example), or set demo_wiki_namespaces to []."
+    quiet: true
+
+- name: Apply the Wiki.js manifests - {{ ns }}
+  ansible.builtin.include_tasks: apply.yml
+  loop:
+    - { t: pvc, site: "{{ sites.primary }}" }
+    - { t: workloads, site: "{{ sites.primary }}" }
+    - { t: shared, site: "{{ sites.primary }}" }
+    - { t: shared, site: "{{ sites.secondary }}" }
+  loop_control:
+    label: "{{ item.t }} on {{ item.site.id }}"
+  vars:
+    demo_wiki_template: "{{ item.t }}"
+    demo_wiki_site: "{{ item.site }}"
+
+- name: Wait for PostgreSQL then Wiki.js on the primary - {{ ns }}
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ sites.primary.kubeconfig }} -n {{ ns }} rollout status deploy/{{ item }} --timeout=300s
+  loop: [postgres, wiki]
+  changed_when: false
+
+- name: Show the URLs of both sites
+  ansible.builtin.include_tasks: urls.yml
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: demo_wiki_site
+    label: "{{ demo_wiki_site.id }}"
+
+- name: Setup wizard bootstrap
+  ansible.builtin.include_tasks: bootstrap.yml
+  when: demo_wiki_bootstrap | bool

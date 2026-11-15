@@ -1,0 +1,44 @@
+---
+# K9: single-namespace smoke test. Opt-in: --tags smoke. Part D (dr_protect) is the real test.
+- name: Pick the replication StorageClass
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ sites.primary.kubeconfig }}"
+    api_version: storage.k8s.io/v1
+    kind: StorageClass
+  register: csm_k3s_smoke_sc
+
+- name: Create the test namespace, PVC and writer on primary
+  kubernetes.core.k8s:
+    kubeconfig: "{{ sites.primary.kubeconfig }}"
+    state: present
+    definition: "{{ item }}"
+  loop:
+    - { apiVersion: v1, kind: Namespace, metadata: { name: rep-test } }
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata: { name: rep-pvc, namespace: rep-test }
+      spec:
+        accessModes: [ReadWriteMany]
+        resources: { requests: { storage: "{{ demo_pvc_size }}" } }
+        storageClassName: "{{ (csm_k3s_smoke_sc.resources | selectattr('parameters', 'defined') | selectattr('parameters', 'contains', sc_param_prefix ~ '/isReplicationEnabled') | first).metadata.name }}"
+    - apiVersion: v1
+      kind: Pod
+      metadata: { name: writer, namespace: rep-test }
+      spec:
+        containers:
+          - name: app
+            image: "{{ demo_image }}"
+            command: ["sh", "-c", "date > /data/hello.txt; sleep 3600"]
+            volumeMounts: [{ name: d, mountPath: /data }]
+        volumes: [{ name: d, persistentVolumeClaim: { claimName: rep-pvc } }]
+  loop_control:
+    label: "{{ item.kind }}"
+
+- name: A replica PV appears on the secondary
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ sites.secondary.kubeconfig }}"
+    kind: PersistentVolume
+  register: csm_k3s_smoke_pv
+  until: csm_k3s_smoke_pv.resources | selectattr('spec.claimRef.name', 'defined') | selectattr('spec.claimRef.name', 'eq', 'reserved') | list | length > 0
+  retries: 24
+  delay: 10

@@ -1,0 +1,91 @@
+---
+# Needs: ps_prep_array (ps1|ps2), ps_prep_apply (false = verify only).
+- name: "Section 02 on one array"
+  module_defaults:
+    dellemc.powerscale.synciq_global_settings: "{{ ps_conn[ps_prep_array] }}"
+    dellemc.powerscale.cluster_services: "{{ ps_conn[ps_prep_array] }}"
+    dellemc.powerscale.filesystem: "{{ ps_conn[ps_prep_array] }}"
+    dellemc.powerscale.user: "{{ ps_conn[ps_prep_array] }}"
+  block:
+    - name: Probe the OneFS API with the configured credentials
+      ansible.builtin.uri:
+        url: "https://{{ arrays[ps_prep_array].endpoint }}:8080/platform/latest"
+        url_username: "{{ ps_conn[ps_prep_array].api_user }}"
+        url_password: "{{ ps_conn[ps_prep_array].api_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ ps_conn[ps_prep_array].verify_ssl }}"
+        status_code: [200, 401]
+      register: ps_prep_probe
+      changed_when: false
+      no_log: true
+
+    - name: Assert Basic authentication works (required by dellemc.powerscale)
+      ansible.builtin.assert:
+        that: ps_prep_probe.status == 200
+        fail_msg: >-
+          {{ ps_prep_array }} rejected Basic auth (HTTP {{ ps_prep_probe.status }}). The guide runs with auth_basic = false
+          (session login only), which the dellemc.powerscale modules cannot use. Enable Basic authentication on the
+          PlatformAPI for {{ ps_conn[ps_prep_array].api_user }}, set ps_admin_user to a user that may use it, or run with -e ps_access=ssh.
+        quiet: true
+
+    - name: Read the licenses
+      ansible.builtin.uri:
+        url: "https://{{ arrays[ps_prep_array].endpoint }}:8080/platform/5/license/licenses"
+        url_username: "{{ ps_conn[ps_prep_array].api_user }}"
+        url_password: "{{ ps_conn[ps_prep_array].api_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ ps_conn[ps_prep_array].verify_ssl }}"
+        return_content: true
+      register: ps_prep_licenses
+      changed_when: false
+      no_log: true
+
+    - name: Assert SyncIQ, SmartQuotas and SnapshotIQ are licensed (evaluation counts)
+      ansible.builtin.assert:
+        that: >-
+          ps_prep_licenses.json.licenses | selectattr('name', 'in', ['SyncIQ', 'SmartQuotas', 'SnapshotIQ'])
+          | rejectattr('status', 'search', 'Unlicensed|Inactive|Expired') | list | length == 3
+        fail_msg: "{{ ps_prep_array }}: a license is missing. Licenses are a CLI step: isi license add --evaluation SYNCIQ,SMARTQUOTAS,SNAPSHOTIQ"
+        quiet: true
+
+    - name: NFS service enabled
+      dellemc.powerscale.cluster_services:
+        nfs_service: true
+      check_mode: "{{ not ps_prep_apply }}"
+      register: ps_prep_nfs
+
+    - name: SyncIQ service on, encryption off (lab; set encryption_required true in production)
+      dellemc.powerscale.synciq_global_settings:
+        service: "on"
+        encryption_required: false
+      check_mode: "{{ not ps_prep_apply }}"
+      register: ps_prep_synciq
+
+    - name: Base path exists
+      dellemc.powerscale.filesystem:
+        path: "{{ isi_path }}"
+        state: present
+      check_mode: "{{ not ps_prep_apply }}"
+      register: ps_prep_path
+
+    - name: CSI user exists in the System access zone
+      dellemc.powerscale.user:
+        user_name: "{{ ps_user }}"
+        access_zone: System
+        state: present
+      check_mode: true
+      register: ps_prep_user
+
+    - name: Assert nothing needed to change
+      ansible.builtin.assert:
+        that:
+          - not ps_prep_nfs.changed
+          - not ps_prep_synciq.changed
+          - not ps_prep_path.changed
+          - not ps_prep_user.changed
+        fail_msg: >-
+          {{ ps_prep_array }} deviates from section 02 (NFS {{ ps_prep_nfs.changed }}, SyncIQ {{ ps_prep_synciq.changed }},
+          {{ isi_path }} {{ ps_prep_path.changed }}, user {{ ps_user }} {{ ps_prep_user.changed }}). Fix it with --tags ps_configure
+          (the user is created manually, guide step 02b).
+        quiet: true
+      when: not ps_prep_apply

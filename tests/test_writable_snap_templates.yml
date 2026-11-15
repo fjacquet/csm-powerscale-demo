@@ -1,0 +1,41 @@
+---
+# Offline render test for the writable-snapshot demo manifests (both tracks).
+# B and C copy the zone/path parameters of A; only B carries the writable flag; neither carries replication keys.
+- name: Writable snapshot manifests - K3s track
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files: [../group_vars/all/main.yml, ../inventory/k3s/group_vars/all/platform.yml]
+  vars: &render_vars
+    demo_wsnap_sc_name: powerscale-writable-snapshot
+    demo_wsnap_snapclass: isilon-snapclass
+    demo_wsnap_snapclass_selected: isilon-snapclass
+    demo_wsnap_datamover_ns: powerprotect
+    demo_wsnap_ppdm_sa_ns: powerprotect
+    demo_wsnap_protected_ns: app-a
+    demo_wsnap_protected_pvc: pgdata
+    demo_wsnap_clone_size: 5Gi
+    demo_wsnap_source:
+      metadata: { name: isilon-replication }
+      provisioner: csi-isilon.dellemc.com
+      parameters:
+        AccessZone: zone-x
+        IsiPath: /ifs/data/csi
+        AzServiceIP: 192.168.1.20
+        ClusterName: ps1
+        RootClientEnabled: "false"
+        replication.storage.dell.com/isReplicationEnabled: "true"
+        replication.storage.dell.com/rpo: Five_Minutes
+  tasks:
+    - name: Render and assert
+      ansible.builtin.import_tasks: writable_snap_checks.yml
+
+- name: Writable snapshot manifests - OpenShift track
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files: [../group_vars/all/main.yml, ../inventory/openshift/group_vars/all/platform.yml]
+  vars: *render_vars
+  tasks:
+    - name: Render and assert
+      ansible.builtin.import_tasks: writable_snap_checks.yml

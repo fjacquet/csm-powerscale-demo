@@ -1,0 +1,30 @@
+---
+# One polling tick (called in a loop by evidence.yml). The guard lives here, not on the loop: a `when` on an include_tasks loop is
+# evaluated for every item before any tick runs, so it could never stop the loop early.
+- name: Run one tick unless the evidence is already done
+  when: not (demo_wsnap_done | bool)
+  block:
+    - name: Wait one polling interval
+      ansible.builtin.wait_for:
+        timeout: "{{ demo_wsnap_poll_seconds | int }}"
+      delegate_to: localhost
+
+    - name: Read the snapshots and PVCs of the cluster
+      ansible.builtin.command: >-
+        kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} get volumesnapshot,pvc -A -o name
+      register: demo_wsnap_objects
+      changed_when: false
+
+    - name: Read the writable snapshots of the array
+      ansible.builtin.include_tasks: array_list.yml
+
+    - name: Read the PPDM activity
+      ansible.builtin.include_tasks: ppdm_activity.yml
+      when: demo_wsnap_ppdm_automate | bool
+
+    - name: Fold the tick into the evidence
+      ansible.builtin.include_tasks: evidence_collect.yml
+      vars:
+        demo_wsnap_objects_now: "{{ demo_wsnap_objects.stdout_lines }}"
+        demo_wsnap_state_now: "{{ demo_wsnap_activity.state | default('') if demo_wsnap_ppdm_automate | bool else '' }}"
+        demo_wsnap_tick_time: "{{ now(utc=true).strftime('%H:%M:%S') }}"

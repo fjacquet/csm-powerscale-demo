@@ -1,0 +1,5 @@
+---
+# Entry without tasks_from: argument validation (meta/argument_specs.yml) runs here, then the primary site is selected.
+- name: Select the primary site
+  ansible.builtin.set_fact:
+    demo_wsnap_site: "{{ sites.primary }}"

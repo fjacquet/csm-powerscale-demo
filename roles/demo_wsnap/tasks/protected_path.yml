@@ -1,0 +1,26 @@
+---
+# The OneFS directory of the protected PV (demo_wsnap_protected_pvc in demo_wsnap_protected_ns). Out: demo_wsnap_watch_paths.
+- name: Read the PV name of the protected PVC
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }} get pvc {{ demo_wsnap_protected_pvc }} -o jsonpath={.spec.volumeName}
+  register: demo_wsnap_protected_pv
+  changed_when: false
+
+- name: Read the CSI volume handle of that PV
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} get pv {{ demo_wsnap_protected_pv.stdout }} -o jsonpath={.spec.csi.volumeHandle}
+  register: demo_wsnap_protected_handle
+  changed_when: false
+
+- name: Read the OneFS path of that PV
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} get pv {{ demo_wsnap_protected_pv.stdout }} -o jsonpath={.spec.csi.volumeAttributes.Path}
+  register: demo_wsnap_protected_attr_path
+  changed_when: false
+
+- name: Derive the OneFS directory of the protected volume
+  ansible.builtin.include_tasks: watch_path.yml
+  vars:
+    demo_wsnap_pv_path: "{{ demo_wsnap_protected_attr_path.stdout }}"
+    demo_wsnap_pv_handle: "{{ demo_wsnap_protected_handle.stdout }}"
+    demo_wsnap_isi_path: "{{ demo_wsnap_source.parameters.IsiPath | default(isi_path) }}"

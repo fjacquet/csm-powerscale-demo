@@ -1,0 +1,49 @@
+---
+# Section 02. ps_access=api (default): official dellemc.powerscale collection (OneFS API, run from the management VM).
+# ps_access=ssh: raw `isi` commands over SSH, for arrays that keep auth_basic = false.
+# Default: assert-only (modules run in check mode, any needed change fails the run).
+#   --tags ps_configure   apply NFS, SyncIQ settings and the base path (licenses stay a CLI step)
+#   --tags synciq_smoke   SyncIQ policy + job + cleanup, array by array (the guide requires BOTH directions)
+# The guide's "step 02b" (csi-user + CSIReplicationRole) has no commands: the user is only checked.
+- name: Assert the array credentials exist
+  ansible.builtin.assert:
+    that:
+      - ps_access in ['api', 'ssh']
+      - ps_access == 'ssh' or ps_conn.ps1.api_password | length > 0
+      - ps_access == 'ssh' or ps_conn.ps2.api_password | length > 0
+    fail_msg: ps_access must be api or ssh; api needs vault_ps_passwords (or vault_ps_admin_passwords) and --ask-vault-pass.
+    quiet: true
+  tags: [always]
+
+- name: Check each array
+  ansible.builtin.include_tasks: "array_{{ ps_access }}.yml"
+  loop: "{{ arrays.keys() | list }}"
+  loop_control:
+    loop_var: ps_prep_array
+  vars:
+    ps_prep_apply: false
+  # --tags ps_configure/synciq_smoke must be able to fix what the check would reject
+  when: "'ps_configure' not in ansible_run_tags and 'synciq_smoke' not in ansible_run_tags"
+  tags: [always]
+
+- name: Apply the section 02 configuration (opt-in)
+  ansible.builtin.include_tasks:
+    file: array_{{ ps_access }}.yml
+    apply:
+      tags: [ps_configure]
+  loop: "{{ arrays.keys() | list }}"
+  loop_control:
+    loop_var: ps_prep_array
+  vars:
+    ps_prep_apply: true
+  tags: [ps_configure, never]
+
+- name: SyncIQ smoke test (opt-in, every array as source)
+  ansible.builtin.include_tasks:
+    file: smoke_{{ ps_access }}.yml
+    apply:
+      tags: [synciq_smoke]
+  loop: "{{ arrays.keys() | list }}"
+  loop_control:
+    loop_var: ps_prep_array
+  tags: [synciq_smoke, never]

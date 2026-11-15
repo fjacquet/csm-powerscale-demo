@@ -1,0 +1,26 @@
+---
+- name: Assert the OpenShift track is selected
+  ansible.builtin.assert:
+    that: platform == 'openshift'
+    fail_msg: This role is the OpenShift track (Part C). On K3s use roles k3s_nodes + csm_k3s.
+    quiet: true
+  tags: [always]
+
+- name: O1 - node checks (NFS client, array reachability, cross-cluster API)
+  ansible.builtin.import_tasks: o1_nodes.yml
+  tags: [o1]
+- name: O2 - CSM Operator (Manual approval)
+  ansible.builtin.import_tasks: o2_operator.yml
+  tags: [o2]
+- name: O3 - repctl cluster registration and inject (the ONE wiring method here)
+  ansible.builtin.import_tasks: o3_repctl.yml
+  tags: [o3]
+- name: O4 - driver secrets + ContainerStorageModule
+  ansible.builtin.import_tasks: o4_driver.yml
+  tags: [o4]
+- name: O5 - replication StorageClass pair
+  ansible.builtin.import_tasks: o5_storageclass.yml
+  tags: [o5]
+- name: O6 - verify
+  ansible.builtin.import_tasks: o6_verify.yml
+  tags: [o6]

@@ -1,0 +1,78 @@
+---
+# Read-only. Run before the demo: proves tools, kubeconfigs, arrays, nodes and (if installed) wiring are healthy.
+- name: Preflight - management VM
+  hosts: mgmt
+  gather_facts: true
+  vars:
+    common_require_passwords: false
+    common_create_dirs: false
+    tools_check_only: true
+  roles:
+    - common
+    - tools
+
+- name: Preflight - K3s nodes
+  hosts: k3s
+  gather_facts: false
+  vars:
+    k3s_nodes_check_only: true
+  tasks:
+    - name: Node checks
+      ansible.builtin.include_role:
+        name: k3s_nodes
+      when: platform == 'k3s'
+
+- name: Preflight - PowerScale arrays (section 02, assert-only, through the OneFS API)
+  hosts: mgmt
+  gather_facts: false
+  roles:
+    - ps_prep
+
+- name: Preflight - API reachability of both clusters
+  hosts: mgmt
+  gather_facts: false
+  tasks:
+    - name: Cluster version
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ item.kubeconfig }}"
+        api_version: v1
+        kind: Namespace
+        name: kube-system
+      loop: "{{ site_list }}"
+      loop_control:
+        label: "{{ item.id }}"
+
+- name: Preflight - Wiki.js demo on K3s (MetalLB ranges, ServiceLB off)
+  hosts: mgmt
+  gather_facts: false
+  tasks:
+    - name: Wiki.js demo checks
+      when: platform == 'k3s' and demo_wiki_namespaces | length > 0
+      block:
+        - name: Every site defines a MetalLB range
+          ansible.builtin.assert:
+            that: item.lb_range | default('') | length > 0
+            fail_msg: "sites.{{ item.id }}.lb_range is empty: set the MetalLB address range in inventory/k3s/group_vars/all/platform.yml."
+            quiet: true
+          loop: "{{ site_list }}"
+          loop_control:
+            label: "{{ item.id }}"
+
+        - name: List the ServiceLB daemonsets
+          ansible.builtin.command: >-
+            kubectl --kubeconfig {{ item.kubeconfig }} -n kube-system get ds -o name
+          register: preflight_ds
+          changed_when: false
+          loop: "{{ site_list }}"
+          loop_control:
+            label: "{{ item.id }}"
+
+        - name: ServiceLB is disabled (it conflicts with MetalLB)
+          ansible.builtin.assert:
+            that: preflight_ds.results[idx].stdout_lines | select('search', 'svclb-') | list | length == 0
+            fail_msg: "K3s ServiceLB is running on {{ site_list[idx].id }}: start K3s with --disable servicelb."
+            quiet: true
+          loop: "{{ site_list }}"
+          loop_control:
+            index_var: idx
+            label: "{{ item.id }}"

@@ -1,0 +1,24 @@
+---
+# D3b: PVCs (option B) then the applications on secondary.
+- name: Include the map
+  ansible.builtin.include_tasks: load_map.yml
+
+- name: Bring up each namespace on secondary
+  ansible.builtin.include_tasks: bringup_ns.yml
+  loop: "{{ dr_namespaces }}"
+  loop_control:
+    loop_var: ns
+
+- name: Remind the operator about the traffic switch
+  ansible.builtin.debug:
+    msg: "Switch traffic (DNS / Ingress / Route) for {{ dr_namespaces | join(', ') }} now. Applications are NOT moved by CSM."
+
+- name: Show the Wiki.js URL on secondary
+  ansible.builtin.include_role:
+    name: demo_wiki
+    tasks_from: urls.yml
+  loop: "{{ dr_namespaces | intersect(demo_wiki_namespaces) }}"
+  loop_control:
+    loop_var: ns
+  vars:
+    demo_wiki_site: "{{ sites.secondary }}"

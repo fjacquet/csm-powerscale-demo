@@ -1,0 +1,40 @@
+---
+# Pure selection, no I/O (tests/test_writable_snap_discover.yml runs this same file).
+# In:  demo_wsnap_sc_list, demo_wsnap_vsc_list (k8s_info resources),
+#      demo_wsnap_source_sc and demo_wsnap_snapclass (explicit choices, may be empty)
+# Out: demo_wsnap_source (StorageClass A), demo_wsnap_snapclass_selected, demo_wsnap_create_snapclass
+- name: Choose StorageClass A
+  vars:
+    _replicated: >-
+      {{ demo_wsnap_sc_list | selectattr('provisioner', 'eq', 'csi-isilon.dellemc.com')
+         | selectattr('parameters', 'defined') | selectattr('parameters', 'contains', sc_param_prefix ~ '/isReplicationEnabled') | list }}
+    _named: "{{ demo_wsnap_sc_list | selectattr('metadata.name', 'eq', demo_wsnap_source_sc) | list }}"
+    _candidates: "{{ _named if demo_wsnap_source_sc | length > 0 else _replicated }}"
+  block:
+    - name: Require exactly one StorageClass A
+      ansible.builtin.assert:
+        that: _candidates | length == 1
+        fail_msg: >-
+          Found {{ _candidates | length }} candidate(s) for the replicated StorageClass A ({{ _candidates | map(attribute='metadata.name') | join(', ') }}).
+          Pick one with -e demo_wsnap_source_sc=<name>.
+        quiet: true
+
+    - name: Remember StorageClass A
+      ansible.builtin.set_fact:
+        demo_wsnap_source: "{{ _candidates | first }}"
+
+- name: Choose the VolumeSnapshotClass
+  vars:
+    _isilon: "{{ demo_wsnap_vsc_list | selectattr('driver', 'eq', 'csi-isilon.dellemc.com') | map(attribute='metadata.name') | list }}"
+  block:
+    - name: Require an explicit class when several csi-isilon classes exist
+      ansible.builtin.assert:
+        that: _isilon | length <= 1 or demo_wsnap_snapclass | length > 0
+        fail_msg: >-
+          Several csi-isilon VolumeSnapshotClasses exist ({{ _isilon | join(', ') }}). Pick one with -e demo_wsnap_snapclass=<name>.
+        quiet: true
+
+    - name: Remember the VolumeSnapshotClass
+      ansible.builtin.set_fact:
+        demo_wsnap_snapclass_selected: "{{ demo_wsnap_snapclass if demo_wsnap_snapclass | length > 0 else (_isilon | first | default('powerscale-snapclass')) }}"
+        demo_wsnap_create_snapclass: "{{ (demo_wsnap_snapclass if demo_wsnap_snapclass | length > 0 else (_isilon | first | default('powerscale-snapclass'))) not in _isilon }}"

@@ -1,0 +1,19 @@
+---
+# Logs in to PPDM and keeps the access token. Needs demo_wsnap_ppdm_host and the password (demo_wsnap_ppdm_password or PPDM_PASSWORD).
+- name: Log in to PPDM
+  ansible.builtin.uri:
+    method: POST
+    url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v2/login"
+    body_format: json
+    body:
+      username: "{{ demo_wsnap_ppdm_user }}"
+      password: "{{ demo_wsnap_ppdm_password | default(lookup('ansible.builtin.env', 'PPDM_PASSWORD', default='')) }}"
+    validate_certs: "{{ not (skip_cert_validation | bool) }}"
+    return_content: true
+  register: demo_wsnap_login
+  no_log: true
+
+- name: Keep the access token
+  ansible.builtin.set_fact:
+    demo_wsnap_ppdm_token: "{{ demo_wsnap_login.json.access_token }}"
+  no_log: true

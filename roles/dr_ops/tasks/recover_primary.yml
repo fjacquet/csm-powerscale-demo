@@ -1,0 +1,14 @@
+---
+# D4a: primary site is back. Keep primary apps at 0 and disable the CSM SyncIQ policies on ps1 BEFORE reprotect/failback.
+- name: Scale primary workloads to 0 in every protected namespace
+  ansible.builtin.include_tasks: scale_down.yml
+  loop: "{{ dr_namespaces }}"
+  loop_control:
+    loop_var: ns
+  vars:
+    dr_site: primary
+
+- name: Disable the CSM SyncIQ policies on ps1
+  ansible.builtin.include_tasks: "policies_disable_{{ ps_access }}.yml"
+  vars:
+    dr_ops_policy_names: "{{ dr_namespaces | map('regex_replace', '^(.*)$', sites.primary.vg_prefix ~ '-\\1-' ~ arrays.ps2.endpoint ~ '-' ~ rpo) | list }}"

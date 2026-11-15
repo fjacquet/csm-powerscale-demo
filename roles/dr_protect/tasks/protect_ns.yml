@@ -1,0 +1,48 @@
+---
+- name: "Namespace on both clusters - {{ ns }}"
+  kubernetes.core.k8s:
+    kubeconfig: "{{ item.kubeconfig }}"
+    kind: Namespace
+    name: "{{ ns }}"
+    state: present
+  loop: "{{ site_list }}"
+  loop_control:
+    label: "{{ item.id }}"
+
+- name: "RWX volume and a writer that appends a timestamp every 30 s (primary) - {{ ns }}"
+  when: ns not in demo_wiki_namespaces
+  kubernetes.core.k8s:
+    kubeconfig: "{{ sites.primary.kubeconfig }}"
+    state: present
+    definition: "{{ item }}"
+  loop:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata: { name: data, namespace: "{{ ns }}" }
+      spec:
+        accessModes: [ReadWriteMany]
+        resources: { requests: { storage: "{{ demo_pvc_size }}" } }
+        storageClassName: "{{ dr_protect_sc }}"
+    - apiVersion: apps/v1
+      kind: Deployment
+      metadata: { name: "{{ demo_writer_deploy }}", namespace: "{{ ns }}" }
+      spec:
+        replicas: 1
+        selector: { matchLabels: { app: writer } }
+        template:
+          metadata: { labels: { app: writer } }
+          spec:
+            containers:
+              - name: app
+                image: "{{ demo_image }}"
+                command: ["sh", "-c", "while true; do date -u +%FT%TZ >> /data/{{ ns }}.log; sleep 30; done"]
+                volumeMounts: [{ name: d, mountPath: /data }]
+            volumes: [{ name: d, persistentVolumeClaim: { claimName: data } }]
+  loop_control:
+    label: "{{ item.kind }}"
+
+- name: "Wiki.js and PostgreSQL on a replicated volume (primary), shared objects on both sites - {{ ns }}"
+  ansible.builtin.include_role:
+    name: demo_wiki
+    tasks_from: deploy.yml
+  when: ns in demo_wiki_namespaces

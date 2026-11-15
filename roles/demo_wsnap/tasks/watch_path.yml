@@ -1,0 +1,10 @@
+---
+# Pure. In: demo_wsnap_pv_path (spec.csi.volumeAttributes.Path of a csi-isilon PV, may be empty), demo_wsnap_pv_handle, demo_wsnap_isi_path.
+# Out: demo_wsnap_watch_paths = the OneFS directory of that volume, i.e. the Src Path of its writable snapshots.
+# Replicated volumes live under a replication-group folder, so the volumeAttributes path wins over the guess below.
+# shortcut: the guess is IsiPath/<first handle segment> (handle `<volume>=_=_=<id>=_=_=<zone>=_=_=<cluster>` assumed); upgrade if the lab shows otherwise.
+- name: Derive the OneFS directory of the volume
+  ansible.builtin.set_fact:
+    demo_wsnap_watch_paths: >-
+      {{ [demo_wsnap_pv_path | default('')] if demo_wsnap_pv_path | default('') | length > 0
+         else [demo_wsnap_isi_path ~ '/' ~ demo_wsnap_pv_handle.split('=_=_=')[0]] }}

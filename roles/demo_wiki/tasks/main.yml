@@ -1,0 +1,5 @@
+---
+# MetalLB gives each K3s site a LoadBalancer address for Wiki.js. OpenShift uses a Route: nothing to prepare.
+- name: MetalLB for the Wiki.js demo
+  ansible.builtin.include_tasks: metallb.yml
+  when: platform == 'k3s' and demo_wiki_namespaces | length > 0

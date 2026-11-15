@@ -1,0 +1,69 @@
+---
+# dellctl prompts for the array passwords. No documented non-interactive input exists,
+# so the prompts are answered with ansible.builtin.expect (needs python3-pexpect on the management VM).
+- name: Assert passwords are available
+  ansible.builtin.assert:
+    that:
+      - vault_ps_passwords.ps1 | default('') | length > 0
+      - vault_ps_passwords.ps2 | default('') | length > 0
+    fail_msg: Passwords missing. Create and encrypt group_vars/all/vault.yml and pass --ask-vault-pass.
+    quiet: true
+
+# creates: protects hand edits. Once custom-* exist dellctl is never re-run (diff manually, see guide K4).
+- name: "Run dellctl install powerscale (output mode, files only, nothing installed)"
+  ansible.builtin.expect:
+    command: "dellctl install powerscale --from-file={{ site.dellctl_file }}"
+    chdir: "{{ site.install_dir }}"
+    creates: "{{ site.install_dir }}/{{ custom_values }}"
+    responses:
+      "{{ dellctl_password_prompt | replace('{endpoint}', arrays[site.local_array].endpoint | regex_escape) }}": "{{ vault_ps_passwords[site.local_array] }}"
+      "{{ dellctl_password_prompt | replace('{endpoint}', arrays[site.remote_array].endpoint | regex_escape) }}": "{{ vault_ps_passwords[site.remote_array] }}"
+    timeout: 900
+    echo: false
+  environment:
+    KUBECONFIG: "{{ site.kubeconfig }}"
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"
+  no_log: true
+
+- name: Fail if dellctl ever ran without a kubeconfig (offline-only output must not be used)
+  ansible.builtin.command: grep -c "kubeconfig file not found" dellctl.log
+  args:
+    chdir: "{{ site.install_dir }}"
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"
+  register: csm_k3s_offline
+  failed_when: csm_k3s_offline.rc == 0
+  changed_when: false
+
+- name: Keep your edits safe - rename the dellctl values to custom-* (never overwrites)
+  ansible.builtin.command: "mv -n {{ gen_values }} {{ custom_values }}"
+  args:
+    chdir: "{{ site.install_dir }}"
+    removes: "{{ site.install_dir }}/{{ gen_values }}"
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"
+
+- name: Keep your edits safe - rename the dellctl manifest to custom-* (never overwrites)
+  ansible.builtin.command: "mv -n {{ gen_manifest }} {{ custom_manifest }}"
+  args:
+    chdir: "{{ site.install_dir }}"
+    removes: "{{ site.install_dir }}/{{ gen_manifest }}"
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"
+
+- name: Credentials-bearing files stay 0600
+  ansible.builtin.file:
+    path: "{{ item.0.install_dir }}/{{ item.1 }}"
+    mode: "0600"
+  loop: "{{ site_list | product([custom_values, custom_manifest]) | list }}"
+  loop_control:
+    label: "{{ item.0.id }}: {{ item.1 }}"

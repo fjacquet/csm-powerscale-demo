@@ -1,0 +1,45 @@
+---
+# OpenShift track: per-platform data only. Shared settings live in the root group_vars/all/main.yml.
+platform: openshift
+
+# ---- PowerScale arrays ----
+arrays:
+  ps1: { name: ps1, endpoint: 192.168.1.20 }
+  ps2: { name: ps2, endpoint: 192.168.1.200 }
+
+# ---- Cluster sites. Cluster IDs MUST be primary/secondary (replication clusterIDs) ----
+sites:
+  primary:
+    id: primary
+    peer: secondary
+    kubeconfig: "{{ kube_dir }}/primary.yaml"
+    install_dir: "{{ base_dir }}/ps1-install"
+    dellctl_file: primary-dellctl.yaml
+    local_array: ps1
+    remote_array: ps2
+    vg_prefix: csi-pri # volumeGroupPrefix: MUST differ per source cluster
+    ocp_api: api.ocp-pri.example.com
+  secondary:
+    id: secondary
+    peer: primary
+    kubeconfig: "{{ kube_dir }}/secondary.yaml"
+    install_dir: "{{ base_dir }}/ps2-install"
+    dellctl_file: secondary-dellctl.yaml
+    local_array: ps2
+    remote_array: ps1
+    vg_prefix: csi-sec
+    ocp_api: api.ocp-sec.example.com
+site_list: "{{ sites.values() | list }}"
+
+
+# O3a: only when the remote API FQDN does not resolve from the pods. Map: {primary: <IP of the OTHER cluster API>, ...}
+ocp_remote_api_ips: {}
+
+# ---- Writable snapshots behind PPDM (role demo_wsnap): lab values, placeholders. Used by --tags register and the REST mode ----
+demo_wsnap_ppdm_host: ppdm.lab.example.com # PPDM FQDN or IP
+demo_wsnap_ppdm_policy: demo-wsnap-k8s # protection policy name (created by --tags register when absent)
+demo_wsnap_ppdm_datadomain: ddve.lab.example.com # Data Domain storage system name, already declared in PPDM
+demo_wsnap_k8s_api_fqdn: api.ocp-primary.lab.example.com # Kubernetes API server FQDN as PPDM reaches it
+demo_wsnap_k8s_api_port: 6443
+demo_wsnap_ppdm_rbac_dir: "{{ base_dir }}/ppdm-rbac" # PPDM UI > Downloads > Kubernetes > RBAC, extracted here
+# demo_wsnap_ppdm_password: from the environment (PPDM_PASSWORD) or the vault, never here

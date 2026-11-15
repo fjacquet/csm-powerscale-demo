@@ -1,0 +1,17 @@
+---
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: demo-wiki
+  namespace: metallb-system
+spec:
+  addresses:
+    - {{ site.lb_range | to_json }}
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: demo-wiki
+  namespace: metallb-system
+spec:
+  ipAddressPools: [demo-wiki]

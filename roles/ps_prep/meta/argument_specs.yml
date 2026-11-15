@@ -1,0 +1,35 @@
+---
+argument_specs:
+  main:
+    short_description: Section 02
+    description:
+      - 'Section 02: verifies (or with tags configures) both PowerScale arrays through dellemc.powerscale (ps_access=api)
+        or raw isi over SSH (ps_access=ssh).'
+    options:
+      ps_access:
+        type: str
+        description: Array access method
+        default: api
+        choices:
+          - api
+          - ssh
+        required: false
+      ps_user:
+        type: str
+        description: CSI user checked on the arrays
+        default: csi-user
+        required: false
+      ps_admin_user:
+        type: str
+        description: User for the API modules (default ps_user)
+        required: false
+      isi_path:
+        type: path
+        description: CSI base path that must exist
+        default: /ifs/data/csi
+        required: false
+      skip_cert_validation:
+        type: bool
+        description: Do not verify the OneFS certificate (lab only)
+        default: true
+        required: false

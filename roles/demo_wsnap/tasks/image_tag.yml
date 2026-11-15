@@ -1,0 +1,8 @@
+---
+# Pure (tests/test_writable_snap_discover.yml runs this file). In: demo_wsnap_image. Out: demo_wsnap_image_tag.
+# Empty when the reference has no tag or is digest-pinned (@sha256:...): a registry port (host:5000/img) is not a tag.
+- name: Extract the tag of the image reference
+  ansible.builtin.set_fact:
+    demo_wsnap_image_tag: >-
+      {{ '' if '@' in demo_wsnap_image or ':' not in demo_wsnap_image.split('/')[-1]
+         else demo_wsnap_image.split('/')[-1].split(':')[-1] }}

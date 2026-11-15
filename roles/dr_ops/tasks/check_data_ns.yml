@@ -1,0 +1,30 @@
+---
+- name: "Stat the stored last write - {{ ns }}"
+  ansible.builtin.stat:
+    path: "{{ dr_dir }}/last-{{ ns }}.txt"
+  register: dr_ops_last_stat
+
+- name: "Assert a last write was captured before the move - {{ ns }}"
+  ansible.builtin.assert:
+    that: dr_ops_last_stat.stat.exists
+    fail_msg: "No last write stored for {{ ns }}: nothing to compare (was the writer running before the failover?)."
+    quiet: true
+
+- name: "Read the stored last write - {{ ns }}"
+  ansible.builtin.slurp:
+    src: "{{ dr_dir }}/last-{{ ns }}.txt"
+  register: dr_ops_last_file
+
+- name: "Search it in the replicated log - {{ ns }}"
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ sites[dr_ops_check_site | default('secondary')].kubeconfig }} -n {{ ns }}
+    exec deploy/{{ demo_writer_deploy }} -- grep -qF "{{ dr_ops_last_file.content | b64decode | trim }}" /data/{{ ns }}.log
+  register: dr_ops_found
+  changed_when: false
+  failed_when: false
+
+- name: "Verdict - {{ ns }}"
+  ansible.builtin.assert:
+    that: dr_ops_found.rc == 0
+    success_msg: "{{ ns }}: last primary write present"
+    fail_msg: "{{ ns }}: MISSING - check the final sync / RPO"

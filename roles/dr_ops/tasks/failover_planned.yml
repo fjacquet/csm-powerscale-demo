@@ -1,0 +1,36 @@
+---
+# D3a: planned failover primary -> secondary. No data loss: writers stop, repctl runs a final sync.
+- name: Include the map
+  ansible.builtin.include_tasks: load_map.yml
+
+- name: Pre-check - every RG exists on both clusters
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ item.0.kubeconfig }}"
+    api_version: replication.storage.dell.com/v1
+    kind: DellCSIReplicationGroup
+    name: "{{ item.1[1] }}"
+  loop: "{{ site_list | product(dr_ops_selected) | list }}"
+  loop_control:
+    label: "{{ item.0.id }}: {{ item.1[1] }}"
+  register: dr_ops_pre
+  failed_when: dr_ops_pre.resources | length != 1
+
+- name: Show RG status before the move
+  ansible.builtin.command: repctl get rg
+  register: dr_ops_before
+  changed_when: false
+
+- name: Planned failover of each namespace
+  ansible.builtin.include_tasks: failover_ns.yml
+  loop: "{{ dr_namespaces }}"
+  loop_control:
+    loop_var: ns
+
+- name: Record the DR state per namespace
+  ansible.builtin.lineinfile:
+    path: "{{ dr_dir }}/state"
+    regexp: "^{{ item }} "
+    line: "{{ item }} secondary-active"
+    create: true
+    mode: "0644"
+  loop: "{{ dr_namespaces }}"

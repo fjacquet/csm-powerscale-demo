@@ -1,0 +1,18 @@
+---
+galaxy_info:
+  author: Fred Jacquet
+  namespace: fjacquet
+  role_name: common
+  description: 'Section 01/03b guardrails: validates platform, prefixes, 63-char volume group names and kubeconfigs; creates
+    working dirs and the operator env file.'
+  license: Apache-2.0
+  min_ansible_version: '2.16'
+  platforms:
+    - name: GenericLinux
+      versions:
+        - all
+  galaxy_tags:
+    - powerscale
+    - csm
+    - replication
+dependencies: []

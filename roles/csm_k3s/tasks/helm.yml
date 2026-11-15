@@ -1,0 +1,87 @@
+---
+- name: Render locally first (no cluster change) to catch values errors
+  kubernetes.core.helm_template:
+    chart_ref: dell/container-storage-modules
+    chart_version: "{{ chart_version }}"
+    release_name: isilon
+    release_namespace: "{{ csi_ns }}"
+    values_files: ["{{ site.install_dir }}/{{ custom_values }}"]
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"
+  register: csm_k3s_template
+  changed_when: false
+  no_log: true
+
+- name: Install driver + replication controller with Helm (pinned chart, idempotent)
+  kubernetes.core.helm:
+    kubeconfig: "{{ site.kubeconfig }}"
+    release_name: isilon
+    release_namespace: "{{ csi_ns }}"
+    create_namespace: true
+    chart_ref: dell/container-storage-modules
+    chart_version: "{{ chart_version }}"
+    values_files: ["{{ site.install_dir }}/{{ custom_values }}"]
+    wait: true
+    timeout: 15m
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"
+  register: csm_k3s_helm
+
+- name: Detect where the chart put the replication controller (v5 fix)
+  ansible.builtin.include_tasks:
+    file: detect_repl_ns.yml
+    apply:
+      tags: [k6]
+
+- name: Point 06 at the controller namespace (secret + config map must live there)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    before=$(sha256sum 06_replication.yaml)
+    REPL_NS='{{ csm_k3s_repl_ns[site.id] }}' yq -i '.metadata.namespace = strenv(REPL_NS)' 06_replication.yaml
+    [ "$before" = "$(sha256sum 06_replication.yaml)" ] || echo CHANGED
+  args:
+    chdir: "{{ site.install_dir }}"
+    executable: /bin/bash
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"
+  register: csm_k3s_ns_fix
+  changed_when: "'CHANGED' in csm_k3s_ns_fix.stdout"
+  no_log: true
+
+# A later helm upgrade can reset the ConfigMap: this apply restores it, and then the controller restarts.
+- name: Apply the replication wiring (remote-cluster Secret + controller ConfigMap)
+  kubernetes.core.k8s:
+    kubeconfig: "{{ site.kubeconfig }}"
+    src: "{{ site.install_dir }}/06_replication.yaml"
+    state: present
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"
+  register: csm_k3s_wiring
+  no_log: true
+
+- name: Restart the replication controller where the wiring changed
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ item.site.kubeconfig }} -n {{ csm_k3s_repl_ns[item.site.id] }}
+    rollout restart deploy/dell-replication-controller-manager
+  loop: "{{ csm_k3s_wiring.results | selectattr('changed') | list }}"
+  loop_control:
+    label: "{{ item.site.id }}"
+  changed_when: true
+
+- name: Wait for the controller rollout
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ site.kubeconfig }} -n {{ csm_k3s_repl_ns[site.id] }}
+    rollout status deploy/dell-replication-controller-manager --timeout=180s
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"
+  changed_when: false

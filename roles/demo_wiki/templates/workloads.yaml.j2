@@ -1,0 +1,64 @@
+---
+# Primary only. dr_protect/standby_kind.yml copies both Deployments to the secondary at 0 replicas.
+# Postgres uses the pre-created PVC by name (no volumeClaimTemplates: a template would create an empty volume on failover).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: {{ ns }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: { app: postgres }
+  template:
+    metadata:
+      labels: { app: postgres }
+    spec:
+      containers:
+        - name: postgres
+          image: {{ demo_wiki_db_image | to_json }}
+          envFrom:
+            - secretRef: { name: wiki-db }
+          ports:
+            - containerPort: 5432
+          readinessProbe:
+            exec:
+              command: [pg_isready, -U, {{ demo_wiki_db_user | to_json }}]
+            periodSeconds: 5
+          volumeMounts:
+            - { name: pgdata, mountPath: /var/lib/pgsql/data } # verify: data path of the chosen image
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: pgdata
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wiki
+  namespace: {{ ns }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: wiki }
+  template:
+    metadata:
+      labels: { app: wiki }
+    spec:
+      containers:
+        - name: wiki
+          image: {{ demo_wiki_image | to_json }}
+          envFrom:
+            - secretRef: { name: wiki-db }
+          ports:
+            - containerPort: 3000
+          readinessProbe:
+            httpGet: { path: /healthz, port: 3000 } # verify: health endpoint of Wiki.js 2
+            periodSeconds: 5
+          volumeMounts:
+            - { name: wikidata, mountPath: /wiki/data } # dataPath (default ./data) must be writable under a random UID
+      volumes:
+        - name: wikidata
+          emptyDir: {}

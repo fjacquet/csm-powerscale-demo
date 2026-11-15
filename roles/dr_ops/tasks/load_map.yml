@@ -1,0 +1,22 @@
+---
+# The map is the only input that survives a lost primary site: read it from the file, never from the primary cluster.
+- name: Read the namespace to RG map
+  ansible.builtin.slurp:
+    src: "{{ dr_dir }}/rg-map.txt"
+  register: dr_ops_map_raw
+
+- name: Parse the map
+  ansible.builtin.set_fact:
+    dr_ops_map: "{{ dr_ops_map_raw.content | b64decode | split('\n') | select | map('split', ' ') | list }}"
+
+- name: Assert the map covers every selected namespace
+  ansible.builtin.assert:
+    that:
+      - dr_ops_map | length > 0
+      - dr_namespaces | difference(dr_ops_map | map('first') | list) | length == 0
+    fail_msg: "{{ dr_dir }}/rg-map.txt is empty or lacks {{ dr_namespaces | difference(dr_ops_map | map('first') | list) }}. Run site.yml --tags d1a first."
+    quiet: true
+
+- name: Selected RGs
+  ansible.builtin.set_fact:
+    dr_ops_selected: "{{ dr_ops_map | selectattr('0', 'in', dr_namespaces) | list }}"

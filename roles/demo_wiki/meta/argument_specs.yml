@@ -1,0 +1,55 @@
+---
+argument_specs:
+  main:
+    short_description: MetalLB prerequisites for the Wiki.js demo (K3s)
+    description:
+      - 'Installs MetalLB on the K3s sites when a Wiki.js namespace exists. Other entry points: deploy.yml (per namespace) and urls.yml.'
+    options:
+      demo_wiki_namespaces:
+        type: list
+        elements: str
+        description: Namespaces that run Wiki.js instead of the busybox writer (empty list disables the role)
+        default: [app-a]
+        required: false
+      demo_wiki_image:
+        type: str
+        description: Wiki.js image
+        default: ghcr.io/requarks/wiki:2
+        required: false
+      demo_wiki_db_image:
+        type: str
+        description: PostgreSQL image (OpenShift-compatible, same on both tracks)
+        default: quay.io/sclorg/postgresql-16-c9s:latest
+        required: false
+      demo_wiki_db_user:
+        type: str
+        description: Database user
+        default: wiki
+        required: false
+      demo_wiki_db_name:
+        type: str
+        description: Database name
+        default: wiki
+        required: false
+      demo_wiki_db_password:
+        type: str
+        description: Database password (vault; identical on both sites; needed only when demo_wiki_namespaces is not empty)
+        required: false
+      demo_wiki_admin_email:
+        type: str
+        description: Wiki.js admin e-mail used by the setup wizard bootstrap
+        default: admin@example.com
+        required: false
+      demo_wiki_admin_password:
+        type: str
+        description: Wiki.js admin password (vault; needed only when demo_wiki_namespaces is not empty)
+        required: false
+      demo_wiki_bootstrap:
+        type: bool
+        description: Finalize the Wiki.js setup wizard automatically
+        default: true
+        required: false
+      demo_wiki_metallb_manifest_url:
+        type: str
+        description: Pinned MetalLB native manifest (K3s only)
+        required: false

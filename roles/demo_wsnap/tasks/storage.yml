@@ -1,0 +1,35 @@
+---
+# Renders and applies StorageClass B (writable), and a VolumeSnapshotClass when the cluster has none.
+# StorageClass parameters are immutable: nothing is applied when B already exists.
+- name: Directory for the rendered manifests
+  ansible.builtin.file:
+    path: "{{ dr_dir }}/writable"
+    state: directory
+    mode: "0700"
+
+- name: Render the StorageClass B
+  ansible.builtin.template:
+    src: storageclasses.yaml.j2
+    dest: "{{ dr_dir }}/writable/storageclasses.yaml"
+    mode: "0600"
+
+- name: Apply the StorageClass B when it does not exist yet
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} apply -f {{ dr_dir }}/writable/storageclasses.yaml
+  register: demo_wsnap_sc_applied
+  changed_when: "'created' in demo_wsnap_sc_applied.stdout"
+  when: demo_wsnap_sc_name not in (demo_wsnap_scs.resources | map(attribute='metadata.name') | list)
+
+- name: Render the VolumeSnapshotClass
+  ansible.builtin.template:
+    src: snapclass.yaml.j2
+    dest: "{{ dr_dir }}/writable/snapclass.yaml"
+    mode: "0600"
+  when: demo_wsnap_create_snapclass | bool
+
+- name: Apply the VolumeSnapshotClass
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} apply -f {{ dr_dir }}/writable/snapclass.yaml
+  register: demo_wsnap_vsc_applied
+  changed_when: "'created' in demo_wsnap_vsc_applied.stdout"
+  when: demo_wsnap_create_snapclass | bool

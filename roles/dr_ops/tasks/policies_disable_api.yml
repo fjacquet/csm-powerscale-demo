@@ -1,0 +1,31 @@
+---
+- name: Disable the CSM SyncIQ policy of each namespace on ps1
+  dellemc.powerscale.synciqpolicy:
+    policy_name: "{{ item }}"
+    enabled: false
+    state: present
+  module_defaults:
+    dellemc.powerscale.synciqpolicy: "{{ ps_conn.ps1 }}"
+  loop: "{{ dr_ops_policy_names }}"
+
+- name: Read each policy back
+  ansible.builtin.uri:
+    url: "https://{{ arrays.ps1.endpoint }}:8080/platform/latest/sync/policies/{{ item }}"
+    url_username: "{{ ps_conn.ps1.api_user }}"
+    url_password: "{{ ps_conn.ps1.api_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ ps_conn.ps1.verify_ssl }}"
+    return_content: true
+  loop: "{{ dr_ops_policy_names }}"
+  register: dr_ops_ps1_after
+  changed_when: false
+  no_log: true
+
+- name: Assert every policy is disabled
+  ansible.builtin.assert:
+    that: not (item.json.policies[0].enabled | bool)
+    fail_msg: "Policy {{ item.item }} is still enabled on ps1."
+    quiet: true
+  loop: "{{ dr_ops_ps1_after.results }}"
+  loop_control:
+    label: "{{ item.item }}"

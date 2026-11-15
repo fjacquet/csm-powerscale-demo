@@ -1,0 +1,41 @@
+---
+argument_specs:
+  main:
+    short_description: K3 to K9
+    description:
+      - 'K3 to K9: dellctl configs, generation, manifest split, prerequisites, Helm install, replication wiring and verification
+        (K3s track).'
+    options:
+      chart_version:
+        type: str
+        description: container-storage-modules chart version
+        default: 1.11.2
+        required: false
+      controller_count:
+        type: int
+        description: Driver controller replicas (1 on single-node K3s)
+        default: 1
+        required: false
+      csm_retention_policy:
+        type: str
+        description: remote PV/RG retention
+        default: Retain
+        choices:
+          - Retain
+          - Delete
+        required: false
+      allow_pvc_creation_on_target:
+        type: bool
+        description: Option A (true) or B (false) of guide section 03c
+        default: false
+        required: false
+      option_a_values_path:
+        type: str
+        description: yaml path of the PVC-creation flag in the values file (option A only)
+        default: ''
+        required: false
+      skip_cert_validation:
+        type: bool
+        description: Lab only
+        default: true
+        required: false

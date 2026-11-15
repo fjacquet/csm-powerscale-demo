@@ -1,0 +1,27 @@
+---
+- name: "Capture the last write (D6) - {{ ns }}"
+  ansible.builtin.include_tasks: "{{ 'capture_wiki_ns.yml' if ns in demo_wiki_namespaces else 'capture_last_write.yml' }}"
+  vars:
+    dr_site: primary
+  when: demo_data_check | bool
+
+- name: "Stop writers on primary - {{ ns }}"
+  ansible.builtin.include_tasks: scale_down.yml
+  vars:
+    dr_site: primary
+
+- name: "Fail over every RG (final sync, disable the ps1 policy, allow writes on ps2) - {{ ns }}"
+  ansible.builtin.command: "repctl --rg {{ item[1] }} failover --target secondary {{ repctl_wait_args | default('--wait') }}"
+  loop: "{{ dr_ops_selected | selectattr('0', 'eq', ns) | list }}"
+  loop_control:
+    label: "{{ item[1] }}"
+  changed_when: true
+
+- name: "Wait for FAILEDOVER - {{ ns }}"
+  ansible.builtin.include_tasks: wait_rg_state.yml
+  vars:
+    rg: "{{ item[1] }}"
+    dr_expect: "{{ repctl_state_failedover }}"
+  loop: "{{ dr_ops_selected | selectattr('0', 'eq', ns) | list }}"
+  loop_control:
+    label: "{{ item[1] }}"

@@ -1,0 +1,45 @@
+---
+# K3s only. Prerequisite: K3s runs with --disable servicelb (preflight checks it).
+- name: Install MetalLB - {{ item.id }}
+  ansible.builtin.command: kubectl --kubeconfig {{ item.kubeconfig }} apply -f {{ demo_wiki_metallb_manifest_url }}
+  register: demo_wiki_metallb
+  changed_when: "'created' in demo_wiki_metallb.stdout or 'configured' in demo_wiki_metallb.stdout"
+  loop: "{{ site_list }}"
+  loop_control:
+    label: "{{ item.id }}"
+
+- name: Wait for the MetalLB controller - {{ item.id }}
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ item.kubeconfig }} -n metallb-system wait --for=condition=Available deploy/controller --timeout=180s
+  changed_when: false
+  loop: "{{ site_list }}"
+  loop_control:
+    label: "{{ item.id }}"
+
+- name: Directory for the rendered pool manifests - {{ item.id }}
+  ansible.builtin.file:
+    path: "{{ dr_dir }}/wiki/{{ item.id }}"
+    state: directory
+    mode: "0700"
+  loop: "{{ site_list }}"
+  loop_control:
+    label: "{{ item.id }}"
+
+- name: Render the address pool - {{ item.id }}
+  ansible.builtin.template:
+    src: metallb-pool.yaml.j2
+    dest: "{{ dr_dir }}/wiki/{{ item.id }}/metallb-pool.yaml"
+    mode: "0600"
+  vars:
+    site: "{{ item }}"
+  loop: "{{ site_list }}"
+  loop_control:
+    label: "{{ item.id }}"
+
+- name: Apply the address pool - {{ item.id }}
+  ansible.builtin.command: kubectl --kubeconfig {{ item.kubeconfig }} apply -f {{ dr_dir }}/wiki/{{ item.id }}/metallb-pool.yaml
+  register: demo_wiki_pool
+  changed_when: "'created' in demo_wiki_pool.stdout or 'configured' in demo_wiki_pool.stdout"
+  loop: "{{ site_list }}"
+  loop_control:
+    label: "{{ item.id }}"

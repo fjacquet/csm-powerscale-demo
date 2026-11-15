@@ -1,0 +1,18 @@
+---
+galaxy_info:
+  author: Fred Jacquet
+  namespace: fjacquet
+  role_name: dr_protect
+  description: 'D1, D1a, D2: demo workloads per namespace, namespace to RG map, SyncIQ policy check and standby Deployments
+    on the failover cluster.'
+  license: Apache-2.0
+  min_ansible_version: '2.16'
+  platforms:
+    - name: GenericLinux
+      versions:
+        - all
+  galaxy_tags:
+    - powerscale
+    - csm
+    - replication
+dependencies: []

@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<!-- saved from url=(0106)file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="glean-artifact-type" content="visual_content"><title>PowerScale CSM Replication — K3s + OpenShift multi-namespace DR (v5)</title><style>
+:root{
+ --artifact-dell:#0672CB; --artifact-dell-dark:#00468B; --artifact-dell-soft:#E6F1FA;
+ --artifact-ink:#0E0E0E; --artifact-muted:#5A5A5A; --artifact-line:#D9DDE1; --artifact-card:#FFFFFF; --artifact-page:#F5F6F7;
+ --artifact-warn:#8A5A00; --artifact-warn-soft:#FFF6E0; --artifact-ok:#3D6B00; --artifact-ok-soft:#EEF7E1;
+ --artifact-code:#0B1A2E; --artifact-code-ink:#E8EEF5; --artifact-code-muted:#9FB3C8; --artifact-code-line:#22344D;
+ --artifact-on-dell:#FFFFFF; --artifact-on-dell-muted:#D6E8F7; --artifact-on-dell-line:rgba(255,255,255,.45);
+ --font-sans:"Roboto","Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;
+ --font-mono:ui-monospace,"Cascadia Code","SFMono-Regular",Menlo,Consolas,monospace;
+}
+html[data-theme='dark']{
+ --artifact-dell:#4BA3F0; --artifact-dell-dark:#0672CB; --artifact-dell-soft:#0F2740;
+ --artifact-ink:#ECEFF2; --artifact-muted:#A7B0BA; --artifact-line:#2C3540; --artifact-card:#161B22; --artifact-page:#0D1117;
+ --artifact-warn:#F2C35B; --artifact-warn-soft:#2B2210; --artifact-ok:#9BD15A; --artifact-ok-soft:#18240D;
+ --artifact-code:#070D16; --artifact-code-line:#1E2B3D;
+ --artifact-on-dell:#FFFFFF; --artifact-on-dell-muted:#D6E8F7;
+}
+html[data-theme='dark'] header.bg-dell{background-color:#0B3D6E}
+*,*::before,*::after{box-sizing:border-box;border-width:0;border-style:solid;border-color:var(--artifact-line)}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:var(--font-sans);background:var(--artifact-page);color:var(--artifact-ink);-webkit-font-smoothing:antialiased}
+h1,h2,p,ul,pre{margin:0} ul{padding:0} a{text-decoration:none} table{border-collapse:collapse}
+button{font:inherit;background:transparent;cursor:pointer}
+pre code{white-space:pre}
+.toc-link.active{color:var(--artifact-dell);border-color:var(--artifact-dell);font-weight:600}
+.copy-btn.done{color:var(--artifact-ok);border-color:var(--artifact-ok)}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+@media print{
+ @page{size:auto !important}
+ body{background:#fff;color:#0E0E0E;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+ nav,button,.copy-btn{display:none !important}
+ header{background:#0672CB !important}
+ main{grid-column:span 12/span 12 !important}
+ pre{white-space:pre-wrap !important;overflow:visible !important}
+ .code-card,table,[data-glean-id^="note"]{break-inside:avoid}
+ section{break-inside:auto}
+ [class*="overflow"]{overflow:visible !important}
+}
+@page { size: auto !important; }
+
+/* --- compiled Tailwind utilities --- */
+.align-top{vertical-align:top}
+.bg-card{background-color:var(--artifact-card)}
+.bg-code{background-color:var(--artifact-code)}
+.bg-dell{background-color:var(--artifact-dell)}
+.bg-dell-soft{background-color:var(--artifact-dell-soft)}
+.bg-ok-soft{background-color:var(--artifact-ok-soft)}
+.bg-warn-soft{background-color:var(--artifact-warn-soft)}
+.block{display:block}
+.border{border-width:1px;border-style:solid}
+.border-b{border-bottom-width:1px;border-bottom-style:solid}
+.border-code-line{border-color:var(--artifact-code-line)}
+.border-dell{border-color:var(--artifact-dell)}
+.border-l-2{border-left-width:2px;border-left-style:solid}
+.border-line{border-color:var(--artifact-line)}
+.border-ok{border-color:var(--artifact-ok)}
+.border-on-dell-line{border-color:var(--artifact-on-dell-line)}
+.border-t{border-top-width:1px;border-top-style:solid}
+.border-transparent{border-color:transparent}
+.border-warn{border-color:var(--artifact-warn)}
+.flex{display:flex}
+.flex-wrap{flex-wrap:wrap}
+.font-mono{font-family:var(--font-mono)}
+.font-semibold{font-weight:600}
+.gap-2{gap:0.5rem}
+.gap-3{gap:0.75rem}
+.gap-4{gap:1rem}
+.grid{display:grid}
+.hidden{display:none}
+.items-baseline{align-items:baseline}
+.items-center{align-items:center}
+.justify-between{justify-content:space-between}
+.leading-relaxed{line-height:1.625}
+.leading-tight{line-height:1.2}
+.list-disc{list-style:disc}
+.max-w-2xl{max-width:42rem}
+.max-w-3xl{max-width:48rem}
+.max-w-6xl{max-width:72rem}
+.max-w-prose{max-width:65ch}
+.mb-1{margin-bottom:0.25rem}
+.mb-2{margin-bottom:0.5rem}
+.mb-3{margin-bottom:0.75rem}
+.mb-4{margin-bottom:1rem}
+.min-w-0{min-width:0}
+.mt-2{margin-top:0.5rem}
+.mt-3{margin-top:0.75rem}
+.mt-4{margin-top:1rem}
+.mt-6{margin-top:1.5rem}
+.mt-10{margin-top:2.5rem}
+.my-6{margin-top:1.5rem;margin-bottom:1.5rem}
+.text-lg{font-size:1.125rem;line-height:1.75rem}
+.mx-auto{margin-left:auto;margin-right:auto}
+.my-4{margin-top:1rem;margin-bottom:1rem}
+.overflow-hidden{overflow:hidden}
+.overflow-x-auto{overflow-x:auto}
+.p-3{padding:0.75rem}
+.p-4{padding:1rem}
+.p-5{padding:1.25rem}
+.pb-16{padding-bottom:4rem}
+.pl-3{padding-left:0.75rem}
+.pl-5{padding-left:1.25rem}
+.pt-10{padding-top:2.5rem}
+.pt-6{padding-top:1.5rem}
+.px-2{padding-left:0.5rem;padding-right:0.5rem}
+.px-3{padding-left:0.75rem;padding-right:0.75rem}
+.px-4{padding-left:1rem;padding-right:1rem}
+.px-5{padding-left:1.25rem;padding-right:1.25rem}
+.px-6{padding-left:1.5rem;padding-right:1.5rem}
+.py-1{padding-top:0.25rem;padding-bottom:0.25rem}
+.py-10{padding-top:2.5rem;padding-bottom:2.5rem}
+.py-12{padding-top:3rem;padding-bottom:3rem}
+.py-2{padding-top:0.5rem;padding-bottom:0.5rem}
+.py-3{padding-top:0.75rem;padding-bottom:0.75rem}
+.rounded{border-radius:.25rem}
+.rounded-full{border-radius:9999px}
+.rounded-lg{border-radius:.5rem}
+.scroll-mt-6{scroll-margin-top:1.5rem}
+.space-y-1>*+*{margin-top:0.25rem}
+.space-y-2>*+*{margin-top:0.5rem}
+.sticky{position:sticky}
+.text-2xl{font-size:1.5rem;line-height:2rem}
+.text-3xl{font-size:1.875rem;line-height:2.25rem}
+.text-base{font-size:1rem;line-height:1.5rem}
+.text-code-ink{color:var(--artifact-code-ink)}
+.text-code-muted{color:var(--artifact-code-muted)}
+.text-dell{color:var(--artifact-dell)}
+.text-ink{color:var(--artifact-ink)}
+.text-left{text-align:left}
+.text-muted{color:var(--artifact-muted)}
+.text-ok{color:var(--artifact-ok)}
+.text-on-dell{color:var(--artifact-on-dell)}
+.text-on-dell-muted{color:var(--artifact-on-dell-muted)}
+.text-sm{font-size:.875rem;line-height:1.25rem}
+.text-warn{color:var(--artifact-warn)}
+.text-xs{font-size:.75rem;line-height:1rem}
+.top-6{top:1.5rem}
+.tracking-tight{letter-spacing:-0.025em}
+.tracking-wider{letter-spacing:0.05em}
+.tracking-widest{letter-spacing:0.1em}
+.uppercase{text-transform:uppercase}
+.w-full{width:100%}
+.hover\:text-code-ink:hover{color:var(--artifact-code-ink)}
+.hover\:text-dell:hover{color:var(--artifact-dell)}
+@media screen and (min-width:768px){.md\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.md\:py-16{padding-top:4rem;padding-bottom:4rem}.md\:text-3xl{font-size:1.875rem;line-height:2.25rem}.md\:text-5xl{font-size:3rem;line-height:1}.md\:text-lg{font-size:1.125rem;line-height:1.75rem}}
+@media screen and (min-width:1024px){.lg\:block{display:block}.lg\:col-span-3{grid-column:span 3/span 3}.lg\:col-span-9{grid-column:span 9/span 9}.lg\:gap-10{gap:2.5rem}.lg\:grid{display:grid}.lg\:grid-cols-12{grid-template-columns:repeat(12,minmax(0,1fr))}.lg\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+<style>
+nav .sticky{max-height:calc(100vh - 3rem);overflow-y:auto;padding-bottom:1rem}
+.toc-part{display:block;margin-top:1rem;margin-bottom:.25rem;padding-left:.75rem}
+.part-band{margin-top:2.5rem;padding:1rem 1.25rem;border-radius:.5rem;background:var(--artifact-dell-soft);color:var(--artifact-ink);border:1px solid var(--artifact-dell)}
+.part-band .k{font-family:var(--font-mono);font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--artifact-dell);font-weight:600}
+.part-band .t{font-size:1.25rem;font-weight:600;margin-top:.15rem}
+.part-band .s{font-size:.875rem;color:var(--artifact-muted);margin-top:.25rem;line-height:1.5}
+.dr-map{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr) minmax(0,1.6fr);gap:.5rem;align-items:stretch}
+.dr-map .hd{font-family:var(--font-mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--artifact-muted);padding:0 .25rem}
+.dr-map .cell{border:1px solid var(--artifact-line);background:var(--artifact-card);color:var(--artifact-ink);border-radius:.5rem;padding:.6rem .75rem;font-size:.85rem;line-height:1.35;overflow-wrap:anywhere}
+.dr-map .cell.ns{border-color:var(--artifact-dell)}
+.flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem}
+.flow .st{border:1px solid var(--artifact-line);background:var(--artifact-card);color:var(--artifact-ink);border-radius:.5rem;padding:.75rem}
+.flow .st .n{font-family:var(--font-mono);font-size:.7rem;color:var(--artifact-dell);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.flow .st .h{font-weight:600;margin:.2rem 0 .3rem}
+.flow .st .b{font-size:.82rem;color:var(--artifact-muted);line-height:1.4}
+.flow .st.alt{border-style:dashed}
+.pill{display:inline-block;font-family:var(--font-mono);font-size:.7rem;padding:.1rem .5rem;border-radius:9999px;border:1px solid var(--artifact-dell);color:var(--artifact-dell);background:var(--artifact-card);margin-left:.5rem;vertical-align:middle}
+.pill.warn{border-color:var(--artifact-warn);color:var(--artifact-warn)}
+@media screen and (max-width:760px){.dr-map,.flow{grid-template-columns:1fr}.dr-map .hd{display:none}}
+@media print{.part-band{break-after:avoid}.dr-map,.flow{break-inside:avoid}}
+@page { size: auto !important; }
+</style></head><body><header class="bg-dell" data-glean-id="hero">
+ <div class="max-w-6xl mx-auto px-6 py-12 md:py-16">
+  <p class="font-mono text-xs uppercase tracking-widest text-on-dell-muted mb-4">Dell Technologies · Container Storage Modules 1.18 · Guide v5</p>
+  <h1 class="text-3xl md:text-5xl font-semibold text-on-dell tracking-tight leading-tight max-w-3xl">PowerScale CSI + CSM Replication: multi-namespace DR on K3s and OpenShift</h1>
+  <p class="text-base md:text-lg text-on-dell-muted mt-4 max-w-2xl leading-relaxed">Install the PowerScale driver with replication on two clusters (K3s with Helm, or OpenShift with the CSM Operator), protect each application namespace as its own SyncIQ replication group, and fail them over, reprotect and fail back with repctl.</p>
+  <div class="flex flex-wrap gap-2 mt-6" data-glean-id="hero-tags">
+   <span class="font-mono text-xs px-3 py-1 rounded-full border border-on-dell-line text-on-dell">CSM 1.18.2 tools</span>
+   <span class="font-mono text-xs px-3 py-1 rounded-full border border-on-dell-line text-on-dell">K3s v1.37.2 · Helm</span>
+   <span class="font-mono text-xs px-3 py-1 rounded-full border border-on-dell-line text-on-dell">OpenShift 4.18–4.22 · CSM Operator</span>
+   <span class="font-mono text-xs px-3 py-1 rounded-full border border-on-dell-line text-on-dell">PowerScale NFS · SyncIQ async</span>
+   <span class="font-mono text-xs px-3 py-1 rounded-full border border-on-dell-line text-on-dell">One RG per namespace</span>
+  </div>
+ </div>
+</header><div class="max-w-6xl mx-auto px-6 lg:grid lg:grid-cols-12 lg:gap-10"><nav class="hidden lg:block lg:col-span-3 pt-10" aria-label="Contents" data-glean-id="toc"><div class="sticky top-6"><p class="font-mono text-xs uppercase tracking-wider text-muted mb-3">Contents</p><span class="toc-part font-mono text-xs uppercase tracking-wider text-dell">Part A · Shared foundation</span><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#before" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="before"><span class="font-mono text-xs">00</span> Before you start</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#inputs" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="inputs"><span class="font-mono text-xs">01</span> Environment</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#powerscale" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="powerscale"><span class="font-mono text-xs">02</span> PowerScale + SyncIQ</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#design" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="design"><span class="font-mono text-xs">03</span> DR design</a><span class="toc-part font-mono text-xs uppercase tracking-wider text-dell">Part B · K3s track</span><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#nodes" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="nodes"><span class="font-mono text-xs">K1</span> K3s node prep</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#tools" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="tools"><span class="font-mono text-xs">K2</span> Tools + clusters</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#configs" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="configs"><span class="font-mono text-xs">K3</span> dellctl configs</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#generate" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="generate"><span class="font-mono text-xs">K4</span> Generate values</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#customize" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="customize"><span class="font-mono text-xs">K5</span> Split &amp; prerequisites</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#helm" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="helm"><span class="font-mono text-xs">K6</span> Helm + replication</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#wire" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="wire"><span class="font-mono text-xs">K7</span> Verify wiring</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#verify" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="verify"><span class="font-mono text-xs">K8</span> Verify</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#test" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="test"><span class="font-mono text-xs">K9</span> Smoke test</a><span class="toc-part font-mono text-xs uppercase tracking-wider text-dell">Part C · OpenShift track</span><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#ocp-prep" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="ocp-prep"><span class="font-mono text-xs">O1</span> What changes</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#ocp-operator" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="ocp-operator"><span class="font-mono text-xs">O2</span> CSM Operator</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#ocp-wire" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="ocp-wire"><span class="font-mono text-xs">O3</span> repctl wiring</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#ocp-driver" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="ocp-driver"><span class="font-mono text-xs">O4</span> Driver + replication</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#ocp-sc" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="ocp-sc"><span class="font-mono text-xs">O5</span> StorageClass pair</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#ocp-verify" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="ocp-verify"><span class="font-mono text-xs">O6</span> Verify</a><span class="toc-part font-mono text-xs uppercase tracking-wider text-dell">Part D · Multi-namespace DR runbook</span><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#dr-onboard" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="dr-onboard"><span class="font-mono text-xs">D1</span> Protect namespaces</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#dr-target" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="dr-target"><span class="font-mono text-xs">D2</span> Prepare failover cluster</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#dr-planned" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="dr-planned"><span class="font-mono text-xs">D3</span> Planned failover</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#dr-unplanned" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="dr-unplanned"><span class="font-mono text-xs">D4</span> Unplanned failover</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#dr-failback" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="dr-failback"><span class="font-mono text-xs">D5</span> Failback</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#dr-test" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="dr-test"><span class="font-mono text-xs">D6</span> DR test</a><span class="toc-part font-mono text-xs uppercase tracking-wider text-dell">Part E · Operate</span><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#reuse" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="reuse"><span class="font-mono text-xs">E1</span> Reuse + operate</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#troubleshoot" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="troubleshoot"><span class="font-mono text-xs">E2</span> Troubleshooting</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#cleanup" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="cleanup"><span class="font-mono text-xs">E3</span> Cleanup</a><a href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#changelog" class="toc-link block py-1 pl-3 text-sm text-muted hover:text-dell border-l-2 border-transparent" data-target="changelog"><span class="font-mono text-xs">E4</span> Changelog + sources</a></div></nav><main class="lg:col-span-9 min-w-0 pb-16"><div class="part-band" data-glean-id="part-a"><div class="k">Both platforms</div><div class="t">Part A · Shared foundation</div><div class="s">Variables, arrays and the replication design.</div></div><section id="before" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-before">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">00</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Before you start</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">One shared foundation (array prep and DR design), two install tracks — <strong>K3s with Helm</strong> (verified in this lab) and <strong>OpenShift with the CSM Operator</strong> — and one multi-namespace DR runbook that works on both. Do Part A, pick one track (B or C), then run Part D.</p><div class="my-4 rounded-lg border border-warn bg-warn-soft p-4" data-glean-id="note-security"><p class="font-semibold text-sm text-warn mb-1">Use CSM 1.18.0 or later</p><div class="text-sm text-ink leading-relaxed">Dell advisory DSA-2026-448 lists critical fixes in CSM 1.18.0; earlier releases are affected. Use the dellctl binary and Helm chart version that ship with CSM 1.18.</div></div><div class="my-4 rounded-lg border border-ok bg-ok-soft p-4" data-glean-id="note-support"><p class="font-semibold text-sm text-ok mb-1">Kubernetes version is in the CSM 1.18 support matrix</p><div class="text-sm text-ink leading-relaxed">CSM 1.18 supports Kubernetes <span class="font-mono">1.35 – 1.37</span> and Red Hat OpenShift <span class="font-mono">4.18 – 4.22</span>. Your <span class="font-mono">K3s v1.37.2</span> clusters run Kubernetes 1.37, which is in range. For the OpenShift track, both clusters must run the same supported OpenShift minor release. The matrix lists upstream Kubernetes rather than K3s by name, so also confirm your Ubuntu release under <em>Host operating systems</em>.</div></div><div class="my-4 rounded-lg border border-dell bg-dell-soft p-4" data-glean-id="note-single-node"><p class="font-semibold text-sm text-dell mb-1">Single-node clusters</p><div class="text-sm text-ink leading-relaxed">The chart defaults to <span class="font-mono">controllerCount: 2</span>. On a one-node cluster the second controller stays <span class="font-mono">Pending</span>. Step K5 sets it to 1 in your values files before you install.</div></div><div class="grid md:grid-cols-3 gap-4 mt-6" data-glean-id="topology">
+<div class="rounded-lg border border-line bg-card p-5" data-glean-id="topo-mgmt"><p class="font-mono text-xs uppercase tracking-wider text-muted mb-2">Management VM · Ubuntu 26.04</p><p class="font-semibold text-ink mb-2">kubectl · helm · dellctl · repctl</p><p class="text-sm text-muted leading-relaxed">Generates, stores, and applies the values files. Uses <span class="font-mono">kp</span>/<span class="font-mono">ks</span> and <span class="font-mono">hp</span>/<span class="font-mono">hs</span>.</p></div>
+<div class="rounded-lg border border-dell bg-card p-5" data-glean-id="topo-primary"><p class="font-mono text-xs uppercase tracking-wider text-dell mb-2">Source · cluster ID primary</p><p class="font-semibold text-ink mb-2">K3s “primary” · <span class="font-mono">192.168.1.105</span></p><p class="text-sm text-muted leading-relaxed">K3s: Helm release <span class="font-mono">isilon</span>. OpenShift: ContainerStorageModule <span class="font-mono">isilon</span>. Driver + replicator sidecar + replication controller. Active site; writes to PowerScale A (ps1).</p></div>
+<div class="rounded-lg border border-line bg-card p-5" data-glean-id="topo-secondary"><p class="font-mono text-xs uppercase tracking-wider text-muted mb-2">Target · cluster ID secondary</p><p class="font-semibold text-ink mb-2">K3s “secondary” · <span class="font-mono">192.168.1.107</span></p><p class="text-sm text-muted leading-relaxed">Same install, roles flipped. Failover site: receives replicated PVs and RGs; SyncIQ copies each namespace’s volume group from ps1 to ps2.</p></div>
+</div>
+<div class="mt-3 rounded-lg bg-dell-soft px-5 py-3 text-sm text-ink flex flex-wrap items-center gap-3" data-glean-id="topo-workflow"><span class="font-semibold text-dell">Workflow</span><span class="font-mono">dellctl (output: true)</span><span class="text-dell">→</span><span class="font-mono">custom-*-values-override.yaml</span><span class="text-dell">→</span><span>review + customize</span><span class="text-dell">→</span><span class="font-mono">helm upgrade --install</span><span class="text-dell">→</span><span class="font-mono">apply 06_replication.yaml</span><span class="text-dell">→</span><span>verify wiring</span></div><div class="flow mt-6" data-glean-id="v5-flow"><div class="st" data-glean-id="flow-a"><div class="n">Part A · 00–03</div><div class="h">Shared foundation</div><div class="b">Variables, PowerScale + SyncIQ in both directions, and the namespace → replication-group design.</div></div><div class="st" data-glean-id="flow-b"><div class="n">Part B · K1–K9</div><div class="h">K3s track (Helm)</div><div class="b">dellctl generates values; Helm installs driver + replication controller. Lab-verified.</div></div><div class="st alt" data-glean-id="flow-c"><div class="n">Part C · O1–O6</div><div class="h">OpenShift track (Operator)</div><div class="b">Certified CSM Operator, ContainerStorageModule CR, repctl wiring, StorageClass pair.</div></div><div class="st" data-glean-id="flow-d"><div class="n">Part D · D1–D6</div><div class="h">Multi-namespace DR</div><div class="b">Onboard namespaces, prepare the failover cluster, planned + unplanned failover, reprotect, failback, test.</div></div></div><div class="my-4 rounded-lg border border-dell bg-dell-soft p-4" data-glean-id="note-v5"><p class="font-semibold text-sm text-dell mb-1">What changed in v5</p><div class="text-sm text-ink leading-relaxed">Fixes to the v4 install (distinct <span class="font-mono">volumeGroupPrefix</span> per cluster, <span class="font-mono">repctl cluster add</span>, a namespace-independent manifest split, and detecting which namespace the replication controller runs in), a new OpenShift track, and the complete failover runbook for several namespaces. Full list in <a class="text-dell" href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#changelog">E4</a>.</div></div><div class="my-4 rounded-lg border border-warn bg-warn-soft p-4" data-glean-id="note-validation"><p class="font-semibold text-sm text-warn mb-1">Validation status</p><div class="text-sm text-ink leading-relaxed">Part B (K3s) steps and expected outputs come from the v4 lab run. The v5 additions — section 03, Part C and Part D — follow Dell CSM documentation but have <strong>not yet been run in this lab</strong>. Items tagged <span class="pill warn">verify</span> depend on version-specific names (annotation keys, values paths, StorageClass parameters); check them on your first run.</div></div></section><section id="inputs" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-inputs">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">01</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Fill in your environment</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Every later command reads these variables. Set them once on the management VM, and source the file in any new shell.</p><div class="overflow-x-auto rounded-lg border border-line my-4" data-glean-id="inputs-table"><table class="w-full text-sm"><thead class="bg-dell-soft"><tr><th class="text-left p-3 font-semibold text-ink">Variable</th><th class="text-left p-3 font-semibold text-ink">Meaning</th><th class="text-left p-3 font-semibold text-ink">Value</th></tr></thead><tbody>
+<tr class="border-t border-line"><td class="p-3 font-mono text-dell">PRIMARY_K3S_IP</td><td class="p-3 text-ink">Primary K3s VM (API on 6443)</td><td class="p-3 font-mono font-semibold text-ink">192.168.1.105</td></tr>
+<tr class="border-t border-line"><td class="p-3 font-mono text-dell">SECONDARY_K3S_IP</td><td class="p-3 text-ink">Secondary K3s VM</td><td class="p-3 font-mono font-semibold text-ink">192.168.1.107</td></tr>
+<tr class="border-t border-line"><td class="p-3 font-mono text-dell">PS_A_ENDPOINT / PS_A_NAME</td><td class="p-3 text-ink">Source PowerScale management IP/FQDN and unique cluster-name</td><td class="p-3 font-mono font-semibold text-ink">192.168.1.20 / ps1</td></tr>
+<tr class="border-t border-line"><td class="p-3 font-mono text-dell">PS_B_ENDPOINT / PS_B_NAME</td><td class="p-3 text-ink">Target PowerScale management IP/FQDN and cluster-name</td><td class="p-3 font-mono font-semibold text-ink">192.168.1.200 / ps2</td></tr>
+<tr class="border-t border-line"><td class="p-3 font-mono text-dell">PS_USER</td><td class="p-3 text-ink">Dedicated OneFS CSI user, same name on PS1 and PS2 (passwords are prompted, never stored)</td><td class="p-3 font-mono font-semibold text-ink">csi-user</td></tr>
+<tr class="border-t border-line"><td class="p-3 font-mono text-dell">ISI_PATH</td><td class="p-3 text-ink">Base path; must exist and match on both arrays</td><td class="p-3 font-mono text-muted">/ifs/data/csi</td></tr>
+<tr class="border-t border-line"><td class="p-3 font-mono text-dell">CHART_VERSION</td><td class="p-3 text-ink"><span class="font-mono">dell/container-storage-modules</span> chart version for CSM 1.18 (see step K2)</td><td class="p-3 font-mono font-semibold text-ink">1.11.2</td></tr>
+<tr class="border-t border-line"><td class="p-3 font-mono text-dell">VG_PREFIX_PRI / VG_PREFIX_SEC</td><td class="p-3 text-ink">volumeGroupPrefix per source cluster — must be different (v4 used <span class="font-mono">csi</span> on both)</td><td class="p-3 font-mono font-semibold text-ink">csi-pri / csi-sec</td></tr><tr class="border-t border-line"><td class="p-3 font-mono text-dell">APP_NAMESPACES</td><td class="p-3 text-ink">Namespaces to protect and fail over (one replication group each)</td><td class="p-3 font-mono font-semibold text-ink">app-a app-b app-c</td></tr><tr class="border-t border-line"><td class="p-3 font-mono text-dell">RPO / DR_DIR</td><td class="p-3 text-ink">SyncIQ RPO for the replication class; folder for the namespace → RG map and logs</td><td class="p-3 font-mono font-semibold text-ink">Five_Minutes / ~/dr</td></tr><tr class="border-t border-line"><td class="p-3 font-mono text-dell">OCP_*_API / CSM_VERSION</td><td class="p-3 text-ink">OpenShift track only: API FQDNsand the CSM version for the Operator custom resource</td><td class="p-3 font-mono font-semibold text-ink">placeholders</td></tr></tbody></table></div><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-env"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm · bash</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>cat &gt; ~/csm-env.sh &lt;&lt;'EOF'
+export PRIMARY_K3S_IP=192.168.1.105
+export SECONDARY_K3S_IP=192.168.1.107
+export PS_A_ENDPOINT=192.168.1.20       # PS1 node 1 (no SmartConnect service IP)
+export PS_A_NAME=ps1
+export PS_B_ENDPOINT=192.168.1.200      # PS2 node 1 (no SmartConnect service IP)
+export PS_B_NAME=ps2
+export PS_USER=csi-user                 # dedicated CSI user, created on PS1 and PS2 (step 02b)
+export ISI_PATH=/ifs/data/csi
+export CSI_NS=isilon
+export CHART_VERSION=1.11.2             # container-storage-modules (csi-isilon 2.18.1, csm-replication 1.16.0)
+export PS1_DIR=$HOME/ps1-install       # primary K3s · primary-dellctl.yaml + its dellctl output
+export PS2_DIR=$HOME/ps2-install       # secondary K3s · secondary-dellctl.yaml + its dellctl output
+export GEN_VALUES=powerscale-values-override.yaml   # dellctl Helm output name; confirm in step K4
+export CUSTOM_VALUES=custom-$GEN_VALUES             # renamed copy you edit and install from
+export GEN_MANIFEST=csm-powerscale-install.yaml      # dellctl full-manifest output name; confirm in step K4
+export CUSTOM_MANIFEST=custom-$GEN_MANIFEST         # renamed copy (contains array credentials)
+# --- v5 · multi-namespace DR (Part A design, Part D runbook) ---
+export RPO=Five_Minutes
+export VG_PREFIX_PRI=csi-pri            # volumeGroupPrefix for volumes whose SOURCE is primary   (must differ per cluster)
+export VG_PREFIX_SEC=csi-sec            # volumeGroupPrefix for volumes whose SOURCE is secondary
+export APP_NAMESPACES="app-a app-b app-c"   # protected namespaces: one replication group each
+export DR_DIR=$HOME/dr                  # namespace -&gt; RG map + failover logs (keep a copy off the primary site)
+# --- v5 · OpenShift track only (placeholders; ignore on K3s) ---
+export CSM_VERSION=v1.18.2              # ContainerStorageModule spec.version; confirm against the support matrix
+export OCP_PRIMARY_API=api.ocp-pri.example.com     # primary API FQDN   (port 6443)
+export OCP_SECONDARY_API=api.ocp-sec.example.com   # secondary API FQDN (port 6443)
+unalias hp hs kp ks 2&gt;/dev/null   # drop any same-named aliases (e.g. from ~/.bashrc) first
+function hp { helm    --kubeconfig $HOME/.kube/primary.yaml   "$@"; }   # functions, not aliases,
+function hs { helm    --kubeconfig $HOME/.kube/secondary.yaml "$@"; }   # so they also work as $K
+function kp { kubectl --kubeconfig $HOME/.kube/primary.yaml   "$@"; }   # in loops and functions
+function ks { kubectl --kubeconfig $HOME/.kube/secondary.yaml "$@"; }
+function ocp { oc --kubeconfig $HOME/.kube/primary.yaml   "$@"; }      # OpenShift-only commands (oc debug, CSV patch)
+function ocs { oc --kubeconfig $HOME/.kube/secondary.yaml "$@"; }
+# RG names used by the PVCs of one namespace ($1 = kp|ks, $2 = namespace)   [verify the annotation key on your first PVC]
+function rg_for_ns { $1 get pvc -n $2 -o jsonpath='{range .items[*]}{.metadata.annotations.replication\.storage\.dell\.com/replicationGroupName}{"\n"}{end}' | sed '/^$/d' | sort -u; }
+EOF
+source ~/csm-env.sh &amp;&amp; mkdir -p $PS1_DIR $PS2_DIR $DR_DIR</code></pre></div></section><section id="powerscale" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-powerscale">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">02</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Prepare both PowerScale clusters</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Replication is array-native. CSM orchestrates it, but SyncIQ must already work between the two arrays.</p><div class="overflow-x-auto rounded-lg border border-line my-4" data-glean-id="ps-status"><table class="w-full text-sm"><thead class="bg-dell-soft"><tr><th class="text-left p-3 font-semibold text-ink">Check</th><th class="text-left p-3 font-semibold text-ink">PS1 · 192.168.1.20</th><th class="text-left p-3 font-semibold text-ink">PS2 · 192.168.1.200</th><th class="text-left p-3 font-semibold text-ink">Status</th><th class="text-left p-3 font-semibold text-ink">Action</th></tr></thead><tbody><tr class="border-t border-line"><td class="p-3 text-ink">OneFS version</td><td class="p-3 font-mono text-xs text-ink">9.15.0.0</td><td class="p-3 font-mono text-xs text-ink">9.14.0.0</td><td class="p-3 font-semibold text-ok">Verified</td><td class="p-3 text-ink">SyncIQ test PS1 → PS2 passed (job finished in 10 s). <strong>Required in v5:</strong> also test PS2 → PS1 — reprotect and failback replicate in that direction</td></tr><tr class="border-t border-line"><td class="p-3 text-ink">Cluster / nodes</td><td class="p-3 font-mono text-xs text-ink">PS1 · 6 nodes OK · .20–.25</td><td class="p-3 font-mono text-xs text-ink">PS2 · 3 nodes OK · .200–.202</td><td class="p-3 font-semibold text-ok">OK</td><td class="p-3 text-ink">None</td></tr><tr class="border-t border-line"><td class="p-3 text-ink">Access zone</td><td class="p-3 font-mono text-xs text-ink">System (/ifs)</td><td class="p-3 font-mono text-xs text-ink">System (/ifs)</td><td class="p-3 font-semibold text-ok">OK</td><td class="p-3 text-ink">None — dellctl configs use <span class="font-mono">System</span></td></tr><tr class="border-t border-line"><td class="p-3 text-ink">IP pool</td><td class="p-3 font-mono text-xs text-ink">pool0 · static · .20–.29</td><td class="p-3 font-mono text-xs text-ink">pool0 · static · .200–.202</td><td class="p-3 font-semibold text-ok">OK</td><td class="p-3 text-ink">None</td></tr><tr class="border-t border-line"><td class="p-3 text-ink">SmartConnect</td><td class="p-3 font-mono text-xs text-ink">No service IP / SC zone</td><td class="p-3 font-mono text-xs text-ink">No service IP / SC zone</td><td class="p-3 font-semibold text-warn">Accepted (lab)</td><td class="p-3 text-ink">Endpoints use node 1: 192.168.1.20 / 192.168.1.200. Add a SmartConnect service IP for production</td></tr><tr class="border-t border-line"><td class="p-3 text-ink">SyncIQ license</td><td class="p-3 font-mono text-xs text-ok">Evaluation · 6 nodes ✓</td><td class="p-3 font-mono text-xs text-ok">Evaluation · 3 nodes ✓</td><td class="p-3 font-semibold text-ok">Done</td><td class="p-3 text-ink">None. Replace evaluation with a permanent license for production</td></tr><tr class="border-t border-line"><td class="p-3 text-ink">SyncIQ service</td><td class="p-3 font-mono text-xs text-ok">on · encryption not required (lab) ✓</td><td class="p-3 font-mono text-xs text-ok">on · encryption not required (lab) ✓</td><td class="p-3 font-semibold text-ok">Done</td><td class="p-3 text-ink">None. Encryption off must match on both; use SyncIQ certificates in production</td></tr><tr class="border-t border-line"><td class="p-3 text-ink">NFS service</td><td class="p-3 font-mono text-xs text-ok">Enabled · v3 + v4.1/4.2 ✓</td><td class="p-3 font-mono text-xs text-ok">Enabled · v3 + v4.1/4.2 ✓</td><td class="p-3 font-semibold text-ok">Done</td><td class="p-3 text-ink">None</td></tr><tr class="border-t border-line"><td class="p-3 text-ink">SmartQuotas license</td><td class="p-3 font-mono text-xs text-ok">Evaluation · 6 nodes ✓</td><td class="p-3 font-mono text-xs text-ok">Evaluation · 3 nodes ✓</td><td class="p-3 font-semibold text-ok">Done</td><td class="p-3 text-ink">None — driver quotas can stay enabled</td></tr><tr class="border-t border-line"><td class="p-3 text-ink">SnapshotIQ license</td><td class="p-3 font-mono text-xs text-ok">Evaluation · 6 nodes ✓</td><td class="p-3 font-mono text-xs text-ok">Evaluation · 3 nodes ✓</td><td class="p-3 font-semibold text-ok">Done</td><td class="p-3 text-ink">None — CSI snapshots available (not for replicated volumes)</td></tr><tr class="border-t border-line"><td class="p-3 text-ink">/ifs/data/csi</td><td class="p-3 font-mono text-xs text-ok">Created · root:wheel ✓</td><td class="p-3 font-mono text-xs text-ok">Created · root:wheel ✓</td><td class="p-3 font-semibold text-ok">Done</td><td class="p-3 text-ink">Optional: <span class="font-mono">chmod 0755</span>, kept identical on both</td></tr><tr class="border-t border-line"><td class="p-3 text-ink">Dedicated CSI user</td><td class="p-3 font-mono text-xs text-ink">csi-user · CSIReplicationRole · owns /ifs/data/csi</td><td class="p-3 font-mono text-xs text-ink">csi-user · CSIReplicationRole · owns /ifs/data/csi</td><td class="p-3 font-semibold text-ok">Verified</td><td class="p-3 text-ink">11 privileges in token on both arrays; replaces root</td></tr><tr class="border-t border-line"><td class="p-3 text-ink">API authentication</td><td class="p-3 font-mono text-xs text-ink">auth_basic = false ✓ · session login</td><td class="p-3 font-mono text-xs text-ink">auth_basic = false ✓ · session login</td><td class="p-3 font-semibold text-ok">Verified</td><td class="p-3 text-ink">Basic off on both; csi-user session login → HTTP 201 on both; isi-auth-type: 1 set in step K3</td></tr></tbody></table></div>
+<div class="my-4 rounded-lg border border-ok bg-ok-soft p-4" data-glean-id="note-synciq-license"><p class="font-semibold text-sm text-ok mb-1">PS1 and PS2 are prepared</p><div class="text-sm text-ink leading-relaxed">Both clusters have SyncIQ, SmartQuotas, and SnapshotIQ evaluation licenses. NFS and SyncIQ are on, SyncIQ encryption is off (lab), and <span class="font-mono">/ifs/data/csi</span> exists. PS1 runs OneFS 9.15.0.0 and PS2 runs 9.14.0.0. A SyncIQ test from PS1 to PS2 finished successfully, and the file arrived on PS2.</div></div>
+<p class="font-semibold text-ink mt-6 mb-2" data-glean-id="ps-fix-title">Commands used (completed on PS1 and PS2)</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-onefs"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">onefs cli · ps1 + ps2</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code># 1. Licenses (lab evaluation; production: apply purchased keys)
+isi license add --evaluation SYNCIQ,SMARTQUOTAS,SNAPSHOTIQ
+isi license list
+
+# 2. NFS service
+isi services nfs enable          # or WebUI: Storage &gt; UNIX Sharing (NFS) &gt; Global Settings &gt; NFS export service enabled
+isi nfs settings global view | head -3
+
+# 3. SyncIQ service
+isi sync settings modify --service=on
+#    Lab shortcut: allow unencrypted SyncIQ (set the same on BOTH clusters)
+isi sync settings modify --encryption-required=false
+#    Production: keep encryption and configure SyncIQ peer certificates on both clusters instead
+isi sync settings view | head -3
+
+# 4. CSI base path (same path on both clusters)
+mkdir -p /ifs/data/csi
+ls -ld /ifs/data/csi</code></pre></div><p class="font-semibold text-ink mt-6 mb-2" data-glean-id="synciq-smoke-title">SyncIQ smoke test — required in both directions</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-synciq-smoke"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">onefs cli · ps1, then reverse on ps2</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code># On PS1: replicate a test folder to PS2
+mkdir -p /ifs/data/synciq-test &amp;&amp; date &gt; /ifs/data/synciq-test/hello.txt
+isi sync policies create synciq-test sync /ifs/data/synciq-test 192.168.1.200 /ifs/data/synciq-test-target
+#   with encryption off, type: confirm create policy
+isi sync jobs start synciq-test
+isi sync reports list            # expect a finished/successful job
+
+# On PS2: confirm the file arrived
+cat /ifs/data/synciq-test-target/hello.txt
+
+# Clean up - PS1: delete the policy and the test source folder
+isi sync policies delete synciq-test --force
+isi sync reports list                               # expect Total: 0
+rm -rf /ifs/data/synciq-test
+
+# Clean up - PS2: release the target folder, then remove it
+isi sync target list                                # if synciq-test is listed:
+isi sync target break synciq-test --force
+rm -rf /ifs/data/synciq-test-target
+isi sync target list                                # should be empty</code></pre></div><div class="my-4 rounded-lg border border-warn bg-warn-soft p-4" data-glean-id="note-reverse"><p class="font-semibold text-sm text-warn mb-1">Run the same test from PS2 to PS1</p><div class="text-sm text-ink leading-relaxed">Swap the roles: create the test policy on PS2 targeting <span class="font-mono">192.168.1.20</span>, run it, check the file on PS1, then clean up both sides. Failback (keep changes) and reprotect create policies on PS2 that write to PS1; if this direction fails, you only find out during a real failback.</div></div><p class="text-sm text-muted leading-relaxed mt-2" data-glean-id="ps-fix-notes">Check the exact license flag with <span class="font-mono">isi license add --help</span>; OneFS licensing options vary by version and license method. If SmartQuotas stays unlicensed, disable quota enforcement in the generated values. Find the key with <span class="font-mono">helm show values dell/csi-isilon --version 2.18.1 | grep -i quota</span>. PS1 has no SmartConnect service IP, so the guide uses node 1 (<span class="font-mono">192.168.1.20</span>) for the API and NFS. If node 1 goes down, CSI loses its endpoint.</p></section><section id="design" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-design">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">03</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Design: namespaces → replication groups</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Decide how namespaces map to replication groups before installing — the StorageClass parameters that encode it are immutable.</p><div class="dr-map my-4" data-glean-id="design-map"><div class="hd">Namespace (primary)</div><div class="hd">Replication group (RG pair)</div><div class="hd">SyncIQ policy on ps1 → ps2</div><div class="cell ns"><span class="font-mono">app-a</span></div><div class="cell">one DellCSIReplicationGroup, same name on both clusters</div><div class="cell font-mono">csi-pri-app-a-192.168.1.200-Five_Minutes</div><div class="cell ns"><span class="font-mono">app-b</span></div><div class="cell">its own RG — failed over independently</div><div class="cell font-mono">csi-pri-app-b-192.168.1.200-Five_Minutes</div><div class="cell ns"><span class="font-mono">app-c</span></div><div class="cell">its own RG — failed over independently</div><div class="cell font-mono">csi-pri-app-c-192.168.1.200-Five_Minutes</div></div><p class="text-sm text-muted leading-relaxed mt-2 max-w-prose" data-glean-id="design-map-note">With <span class="font-mono">ignoreNamespaces: "false"</span> the driver groups volumes by namespace (per StorageClass and RPO): one volume group directory, one RG pair and one SyncIQ policy per namespace. The policy exists only on the source array; ps2 holds the matching local target. Policy names follow <span class="font-mono">&lt;prefix&gt;-&lt;namespace&gt;-&lt;target IP/FQDN&gt;-&lt;rpo&gt;</span>.</p><div class="mt-10" data-glean-id="h-design-choice"><p class="font-mono text-xs uppercase tracking-wider text-dell mb-1">03a</p><h3 class="text-lg font-semibold text-ink mb-2">Choose the grouping</h3></div><div class="overflow-x-auto rounded-lg border border-line my-4" data-glean-id="design-choice"><table class="w-full text-sm"><thead class="bg-dell-soft"><tr><th class="text-left p-3 font-semibold text-ink">Setting</th><th class="text-left p-3 font-semibold text-ink">Groups</th><th class="text-left p-3 font-semibold text-ink">Failover unit</th><th class="text-left p-3 font-semibold text-ink">Use when</th></tr></thead><tbody class="bg-card"><tr class="border-t border-line" data-glean-id="design-choice-row-0"><td class="p-3 text-ink align-top"><span class="font-mono">ignoreNamespaces: "false"</span> (this guide)</td><td class="p-3 text-ink align-top">One RG per namespace</td><td class="p-3 text-ink align-top">Per namespace — move one app, or loop over all for a site failover</td><td class="p-3 text-ink align-top">Several independent apps; you want to test or move them one at a time</td></tr><tr class="border-t border-line" data-glean-id="design-choice-row-1"><td class="p-3 text-ink align-top"><span class="font-mono">ignoreNamespaces: "true"</span></td><td class="p-3 text-ink align-top">One RG for every volume of the StorageClass</td><td class="p-3 text-ink align-top">All or nothing</td><td class="p-3 text-ink align-top">One tightly coupled application stack spread over namespaces</td></tr></tbody></table></div><div class="my-4 rounded-lg border border-dell bg-dell-soft p-4" data-glean-id="note-design-units"><p class="font-semibold text-sm text-dell mb-1">Site failover = loop over every RG</p><div class="text-sm text-ink leading-relaxed">repctl acts on one RG at a time. Failing over “the active cluster” means running the action for each namespace’s RG — Part D scripts this from a namespace → RG map. A namespace using two replication StorageClasses or two RPOs ends up with two RGs; keep one replication class per app namespace to keep the map simple.</div></div><div class="mt-10" data-glean-id="h-design-rules"><p class="font-mono text-xs uppercase tracking-wider text-dell mb-1">03b</p><h3 class="text-lg font-semibold text-ink mb-2">Rules that apply to both tracks</h3></div><ul class="list-disc pl-5 space-y-1 text-sm text-ink leading-relaxed my-4" data-glean-id="design-rules"><li><strong>Distinct <span class="font-mono">volumeGroupPrefix</span> per source cluster</strong> — <span class="font-mono">csi-pri</span> on primary, <span class="font-mono">csi-sec</span> on secondary.</li><li><strong>63-character limit</strong> on <span class="font-mono">&lt;prefix&gt;-&lt;namespace&gt;-&lt;IP or FQDN&gt;-&lt;rpo&gt;</span>. With the values here, namespace names can be at most 28 characters; a SmartConnect FQDN instead of an IP leaves less room.</li><li><strong>IsiPath must be identical</strong> on source and target (<span class="font-mono">/ifs/data/csi</span>).</li><li><strong>Failover does not stop writes on the source</strong> on PowerScale — the runbook scales workloads to 0 first.</li><li><strong>No CSI snapshots</strong> of SyncIQ-replicated volumes; protect them with array-side snapshots or backup tools.</li><li><strong>Applications are not replicated.</strong> CSM moves volumes (data, PV and RG objects); Deployments, Services, ConfigMaps, Secrets, Ingress/Routes and DNS are your job (D2).</li></ul><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-design-len"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm · name length check</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+for NS in $APP_NAMESPACES; do
+  for SIDE in "$VG_PREFIX_PRI $PS_B_ENDPOINT" "$VG_PREFIX_SEC $PS_A_ENDPOINT"; do
+    set -- $SIDE; N="$1-$NS-$2-$RPO"
+    [ ${#N} -le 63 ] &amp;&amp; echo "OK   ${#N}  $N" || echo "LONG ${#N}  $N   &lt;- shorten namespace or prefix"
+  done
+done</code></pre></div><div class="mt-10" data-glean-id="h-design-pvc"><p class="font-mono text-xs uppercase tracking-wider text-dell mb-1">03c</p><h3 class="text-lg font-semibold text-ink mb-2">Decide how PVCs appear on the failover cluster</h3></div><div class="overflow-x-auto rounded-lg border border-line my-4" data-glean-id="design-pvc"><table class="w-full text-sm"><thead class="bg-dell-soft"><tr><th class="text-left p-3 font-semibold text-ink">Option</th><th class="text-left p-3 font-semibold text-ink">What the controller does</th><th class="text-left p-3 font-semibold text-ink">At failover</th><th class="text-left p-3 font-semibold text-ink">Fits</th></tr></thead><tbody class="bg-card"><tr class="border-t border-line" data-glean-id="design-pvc-row-0"><td class="p-3 text-ink align-top"><strong>B · default</strong> (<span class="font-mono">allowPvcCreationOnTarget: false</span>)</td><td class="p-3 text-ink align-top">Creates the replica PV on secondary and reserves it with <span class="font-mono">claimRef: reserved</span>; no PVC</td><td class="p-3 text-ink align-top"><span class="font-mono">repctl create pvc --rg &lt;rg&gt; -t &lt;ns&gt; --dry-run=false</span> recreates the PVCs from the PV annotations</td><td class="p-3 text-ink align-top">Explicit control; GitOps on secondary deploys apps without PVC objects</td></tr><tr class="border-t border-line" data-glean-id="design-pvc-row-1"><td class="p-3 text-ink align-top"><strong>A</strong> (<span class="font-mono">allowPvcCreationOnTarget: true</span>)</td><td class="p-3 text-ink align-top">Also creates a matching PVC on the target cluster</td><td class="p-3 text-ink align-top">PVCs are already there; scale the apps up</td><td class="p-3 text-ink align-top">Fastest RTO. Namespaces must exist on secondary; GitOps there must not manage the same PVCs</td></tr></tbody></table></div><p class="text-sm text-muted leading-relaxed mt-2 max-w-prose" data-glean-id="design-pvc-note">Part D shows option B and notes where option A skips a step. K3s: set the key in the Helm values (K5d). OpenShift: <span class="font-mono">REPLICATION_ALLOW_PVC_CREATION_ON_TARGET</span> in the ContainerStorageModule (O4).</p><div class="mt-10" data-glean-id="h-design-ret"><p class="font-mono text-xs uppercase tracking-wider text-dell mb-1">03d</p><h3 class="text-lg font-semibold text-ink mb-2">Retention: what deleting on the source does to the replica</h3></div><p class="text-sm text-muted leading-relaxed mt-2 max-w-prose" data-glean-id="design-ret-p">The replication StorageClass can carry <span class="font-mono">remotePVRetentionPolicy</span> and <span class="font-mono">remoteRGRetentionPolicy</span> (<span class="font-mono">Delete</span> or <span class="font-mono">Retain</span>). With <span class="font-mono">Delete</span>, removing a PVC or a whole namespace on primary also removes the replica on secondary — an operator mistake then propagates to the DR site. Use <span class="font-mono">Retain</span> for production DR and clean up deliberately. <span class="pill warn">verify</span></p></section><div class="part-band" data-glean-id="part-b"><div class="k">Helm + dellctl · lab-verified in v4</div><div class="t">Part B · K3s track</div><div class="s">Skip to Part C for OpenShift.</div></div><section id="nodes" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-nodes">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">K1</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Prepare the K3s nodes</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">PowerScale is NFS-only, so each K3s node needs the NFS client. Run this on both K3s VMs.</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-nodes"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">k3s vms · 192.168.1.105 + 192.168.1.107</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code># 1. Install the NFS client and netcat
+sudo apt-get update
+sudo apt-get install -y nfs-common netcat-openbsd
+
+# 2. Required: confirm the NFS client is installed
+dpkg -l nfs-common | tail -1        # expect: ii  nfs-common ...
+
+# 3. Required: reach both PowerScale clusters (API, NFS, rpcbind)
+for IP in 192.168.1.20 192.168.1.200; do
+  nc -zvw3 $IP 8080; nc -zvw3 $IP 2049; nc -zvw3 $IP 111
+  curl -sk -o /dev/null -w "$IP API HTTP %{http_code}\n" https://$IP:8080/platform/latest   # 401 = reachable
+done
+
+# 4. Required: reach the OTHER K3s cluster's API (replication controller traffic)
+nc -zvw3 192.168.1.107 6443         # run on primary
+nc -zvw3 192.168.1.105 6443         # run on secondary</code></pre></div><div class="my-4 rounded-lg border border-ok bg-ok-soft p-4" data-glean-id="note-reach-verified"><p class="font-semibold text-sm text-ok mb-1">Verified: both K3s VMs reach both arrays</p><div class="text-sm text-ink leading-relaxed">From <span class="font-mono">primary</span> (192.168.1.105) and <span class="font-mono">secondary</span> (192.168.1.107), TCP 8080, 2049, and 111 succeeded to 192.168.1.20 (PS1) and 192.168.1.200 (PS2). The OneFS API returned HTTP 401 on both, which means it is reachable and requires authentication. <span class="font-mono">nfs-common 1:2.8.5-1ubuntu1</span> is installed on both VMs, and TCP 6443 succeeds in both directions between 192.168.1.105 and 192.168.1.107.</div></div><div class="my-4 rounded-lg border border-dell bg-dell-soft p-4" data-glean-id="note-6443"><p class="font-semibold text-sm text-dell mb-1">Cluster-to-cluster API access</p><div class="text-sm text-ink leading-relaxed">Each replication controller calls the other cluster’s API. Allow TCP 6443 between <span class="font-mono">192.168.1.105</span> and <span class="font-mono">192.168.1.107</span>, and from the management VM to both.</div></div></section><section id="tools" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-tools">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">K2</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Install helm, dellctl, and repctl; register clusters</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">dellctl validates that Helm is available even in output mode. Replication generation also requires both clusters registered in dellctl. This guide uses Helm 4.3 with dellctl and repctl 1.18.2.</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-tools"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code># Helm 4 (verified: v4.3.0, KubeClientVersion v1.37)
+curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4 | bash
+helm version
+helm repo add dell https://dell.github.io/helm-charts &amp;&amp; helm repo update
+
+# Confirm the pinned chart (CHART_VERSION=1.11.2) and its subcharts
+helm show chart dell/container-storage-modules --version 1.11.2 | grep -A2 -E "csi-isilon|csm-replication"
+
+# dellctl + repctl from the CSM v1.18.2 release
+wget -O dellctl https://github.com/dell/csm/releases/download/v1.18.2/dellctl
+wget -O repctl  https://github.com/dell/csm/releases/download/v1.18.2/repctl
+ls -l dellctl repctl              # binaries are tens of MB; a few KB means an HTML error page
+chmod +x dellctl repctl &amp;&amp; sudo mv dellctl repctl /usr/local/bin/
+dellctl --version
+repctl --version
+
+dellctl cluster add -n primary   -f ~/.kube/primary.yaml
+dellctl cluster add -n secondary -f ~/.kube/secondary.yaml
+dellctl cluster get
+
+# v5: repctl keeps its OWN cluster list (~/.repctl/clusters) - dellctl's registration does not feed it.
+# Use the same IDs as the replication StorageClasses (primary / secondary).
+repctl cluster add -f ~/.kube/primary.yaml,~/.kube/secondary.yaml -n primary,secondary
+repctl cluster get</code></pre></div><div class="my-4 rounded-lg border border-dell bg-dell-soft p-4" data-glean-id="note-repctl-add"><p class="font-semibold text-sm text-dell mb-1">v5 fix · repctl needs its own registration</p><div class="text-sm text-ink leading-relaxed">v4 used <span class="font-mono">repctl get rg</span> and failover commands without ever adding the clusters to repctl. <span class="font-mono">repctl cluster add</span> only writes repctl’s local config on the management VM; it does not create anything in the clusters, so it does not conflict with the dellctl wiring.</div></div><p class="font-semibold text-ink mt-6 mb-2" data-glean-id="tools-expected-title">Expected results</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-tools-expected"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">expected output</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>$ dellctl --version
+dellctl version v1.18.2
+
+$ repctl --version
+repctl version v1.16.0          # matches csm-replication 1.16.0 in chart 1.11.2
+                                # (CSI_LOG_FORMAT / CSI_LOG_LEVEL "defaulted" lines are normal)
+
+$ dellctl cluster add -n primary -f ~/.kube/primary.yaml
+ INFO Adding clusters ...
+ INFO Cluster: primary
+ INFO Successfully added cluster primary in /home/user/.dellctl/clusters/primary folder.
+
+$ dellctl cluster add -n secondary -f ~/.kube/secondary.yaml
+ INFO Adding clusters ...
+ INFO Cluster: secondary
+ INFO Successfully added cluster secondary in /home/user/.dellctl/clusters/secondary folder.
+
+$ dellctl cluster get
+CLUSTER ID   VERSION   URL                          UID
+primary      v1.37     https://192.168.1.105:6443
+secondary    v1.37     https://192.168.1.107:6443</code></pre></div><ul class="list-disc pl-5 space-y-1 text-sm text-ink leading-relaxed" data-glean-id="tools-expected-checks">
+<li>CLUSTER IDs must be exactly <span class="font-mono">primary</span> and <span class="font-mono">secondary</span>; they become the replication cluster IDs in step K3.</li>
+<li>URLs must show the real VM IPs, not <span class="font-mono">127.0.0.1</span>. If they show 127.0.0.1, fix the kubeconfig, then <span class="font-mono">dellctl cluster remove -n &lt;name&gt;</span> and add it again.</li>
+<li>An empty UID column is expected when <span class="font-mono">-u</span> isn’t passed.</li></ul><div class="my-4 rounded-lg border border-ok bg-ok-soft p-4" data-glean-id="note-chart"><p class="font-semibold text-sm text-ok mb-1">Chart version: container-storage-modules 1.11.2 (verified)</p><div class="text-sm text-ink leading-relaxed"><span class="font-mono">helm show chart dell/container-storage-modules</span> returns version <span class="font-mono">1.11.2</span> with these subcharts used here: <span class="font-mono">csi-isilon 2.18.1</span> (PowerScale driver) and <span class="font-mono">csm-replication 1.16.0</span> (replication controller). 1.11.2 is newer than the 1.11.1 tag on GitHub; for PowerScale, both use the same driver. Always pin <span class="font-mono">--version</span> so reruns stay reproducible. dellctl/repctl <span class="font-mono">1.18.2</span> are paired with this chart. A dellctl/chart mismatch shows up as <span class="font-mono">embedded template missing driver key</span>; if that happens, check <span class="font-mono">dellctl --version</span> against the chart.</div></div><div class="my-4 rounded-lg border border-ok bg-ok-soft p-4" data-glean-id="note-helm4"><p class="font-semibold text-sm text-ok mb-1">Helm 4 is supported</p><div class="text-sm text-ink leading-relaxed">The latest CSM release supports Helm v4. This guide was run with Helm <span class="font-mono">v4.3.0</span> (KubeClientVersion v1.37). In Helm 4, bare <span class="font-mono">--wait</span> uses the watcher strategy. The optional <span class="font-mono">helm diff</span> plugin needs a Helm 4–compatible release.</div></div></section><section id="configs" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-configs">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">K3</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Create the two dellctl configuration files</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Both files use <span class="font-mono">helm-install: true</span> and <span class="font-mono">output: true</span>. Each file lives in its own directory, because dellctl writes its output to the current directory under a fixed name and overwrites it on every run. <span class="font-mono">helm-values</span> is left out, so the default name is used.</p><div class="grid lg:grid-cols-2 gap-4 my-4" data-glean-id="config-compare">
+<div class="rounded-lg border border-line bg-card p-4 text-sm"><p class="font-semibold text-dell mb-2">primary-dellctl.yaml</p><ul class="space-y-1 text-ink"><li><span class="font-mono">ps1</span> → <span class="font-mono">primary: true</span></li><li><span class="font-mono">sourceClusterID: primary</span></li><li><span class="font-mono">targetClusterIP: 192.168.1.107</span></li><li><span class="font-mono">dir: ~/ps1-install</span></li></ul></div>
+<div class="rounded-lg border border-line bg-card p-4 text-sm"><p class="font-semibold text-dell mb-2">secondary-dellctl.yaml</p><ul class="space-y-1 text-ink"><li><span class="font-mono">ps2</span> → <span class="font-mono">primary: true</span></li><li><span class="font-mono">sourceClusterID: secondary</span></li><li><span class="font-mono">targetClusterIP: 192.168.1.105</span></li><li><span class="font-mono">dir: ~/ps2-install</span></li></ul></div></div><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-layout"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">directory layout</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>~/ps1-install/                                # primary K3s 192.168.1.105 · PS1 is the source
+├── primary-dellctl.yaml                      # step K3 input
+├── custom-csm-powerscale-install.yaml        # renamed dellctl manifest · incl. secrets (0600)
+├── 01_snapshot-crds.yaml … 06_replication.yaml   # step K5 split of the manifest
+├── custom-powerscale-values-override.yaml    # renamed dellctl values · you edit · helm -f uses this
+├── dellctl-external-snapshotter/             # dellctl clone of external-snapshotter (CRDs source)
+├── primary-rendered.yaml                     # helm template output (step K5)
+└── dellctl.log
+
+~/ps2-install/                                # secondary K3s 192.168.1.107 · PS2 is the source
+├── secondary-dellctl.yaml
+├── custom-csm-powerscale-install.yaml
+├── 01_snapshot-crds.yaml … 06_replication.yaml
+├── custom-powerscale-values-override.yaml
+├── dellctl-external-snapshotter/
+├── secondary-rendered.yaml
+└── dellctl.log</code></pre></div><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-configs"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+
+# Primary cluster: ~/ps1-install
+cd $PS1_DIR
+cat &gt; primary-dellctl.yaml &lt;&lt;EOF
+namespace: ${CSI_NS}
+helm-install: true
+output: true                              # generate only; do not run helm install
+snapshot-controller: true                 # K3s ships no VolumeSnapshot CRDs/controller; dellctl generates them
+modules: replication
+isi-path: ${ISI_PATH}
+isi-access-zone: System
+isi-auth-type: 1                           # session login; OneFS Basic auth is off
+skip-certificate-validation: true          # lab only
+storage:
+  - endpoint: ${PS_A_ENDPOINT}
+    username: ${PS_USER}
+    cluster-name: ${PS_A_NAME}
+    endpoint-port: 8080
+    primary: true
+  - endpoint: ${PS_B_ENDPOINT}
+    username: ${PS_USER}
+    cluster-name: ${PS_B_NAME}
+    endpoint-port: 8080
+    secondary: true
+replication:
+  sourceClusterID: primary
+  targetClusterID: secondary
+  targetClusterIP: ${SECONDARY_K3S_IP}
+  parameters:
+    rpo: ${RPO}
+    ignoreNamespaces: false
+    volumeGroupPrefix: ${VG_PREFIX_PRI}       # v5: unique per source cluster
+EOF
+
+# Secondary cluster: ~/ps2-install
+cd $PS2_DIR
+cat &gt; secondary-dellctl.yaml &lt;&lt;EOF
+namespace: ${CSI_NS}
+helm-install: true
+output: true
+snapshot-controller: true                 # K3s ships no VolumeSnapshot CRDs/controller; dellctl generates them
+modules: replication
+isi-path: ${ISI_PATH}
+isi-access-zone: System
+isi-auth-type: 1                           # session login; OneFS Basic auth is off
+skip-certificate-validation: true
+storage:
+  - endpoint: ${PS_B_ENDPOINT}
+    username: ${PS_USER}
+    cluster-name: ${PS_B_NAME}
+    endpoint-port: 8080
+    primary: true
+  - endpoint: ${PS_A_ENDPOINT}
+    username: ${PS_USER}
+    cluster-name: ${PS_A_NAME}
+    endpoint-port: 8080
+    secondary: true
+replication:
+  sourceClusterID: secondary
+  targetClusterID: primary
+  targetClusterIP: ${PRIMARY_K3S_IP}
+  parameters:
+    rpo: ${RPO}
+    ignoreNamespaces: false
+    volumeGroupPrefix: ${VG_PREFIX_SEC}       # v5: unique per source cluster
+EOF
+
+ls -l $PS1_DIR/primary-dellctl.yaml $PS2_DIR/secondary-dellctl.yaml</code></pre></div><p class="font-semibold text-ink mt-6 mb-2" data-glean-id="configs-verify-title">Verify the expanded values</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-configs-verify"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>cat ~/ps1-install/primary-dellctl.yaml ~/ps2-install/secondary-dellctl.yaml | \
+  grep -nE "namespace|isi-path|endpoint:|username|cluster-name|targetClusterIP"</code></pre></div><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-configs-verify-expected"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">expected output</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>1:namespace: isilon
+6:isi-path: /ifs/data/csi
+11:  - endpoint: 192.168.1.20
+12:    username: csi-user
+13:    cluster-name: ps1
+16:  - endpoint: 192.168.1.200
+17:    username: csi-user
+18:    cluster-name: ps2
+24:  targetClusterIP: 192.168.1.107
+29:namespace: isilon
+34:isi-path: /ifs/data/csi
+39:  - endpoint: 192.168.1.200
+40:    username: csi-user
+41:    cluster-name: ps2
+44:  - endpoint: 192.168.1.20
+45:    username: csi-user
+46:    cluster-name: ps1
+52:  targetClusterIP: 192.168.1.105</code></pre></div><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-configs-prefix"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm · v5 check</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>grep -n volumeGroupPrefix ~/ps1-install/primary-dellctl.yaml ~/ps2-install/secondary-dellctl.yaml
+# expect csi-pri in primary-dellctl.yaml and csi-sec in secondary-dellctl.yaml</code></pre></div><div class="my-4 rounded-lg border border-warn bg-warn-soft p-4" data-glean-id="note-prefix"><p class="font-semibold text-sm text-warn mb-1">v5 fix · one volumeGroupPrefix per cluster</p><div class="text-sm text-ink leading-relaxed">Dell’s PowerScale replication docs warn not to reuse the same prefix on different Kubernetes clusters: an action on a replication group in one cluster can then hit the other. This setup replicates in both directions, so v4’s <span class="font-mono">csi</span> on both sides is unsafe. The prefix is a StorageClass parameter and StorageClasses are immutable — if v4 is already installed, recreate the replication StorageClasses and re-provision test volumes.</div></div><p class="text-sm text-muted mb-4" data-glean-id="configs-verify-note">Blank fields or literal <span class="font-mono">${...}</span> mean <span class="font-mono">~/csm-env.sh</span> wasn’t sourced when the heredoc ran. Run <span class="font-mono">source ~/csm-env.sh</span> and rewrite the file.</p><div class="my-4 rounded-lg border border-dell bg-dell-soft p-4" data-glean-id="note-rules"><p class="font-semibold text-sm text-dell mb-1">Config rules</p><div class="text-sm text-ink leading-relaxed"><span class="font-mono">--from-file</span> can’t be combined with other flags, so <span class="font-mono">output</span> lives in the file. <span class="font-mono">--config-version</span> applies only to Operator installs; Helm uses the chart version. PowerScale is async-only, so <span class="font-mono">mode</span> is omitted.</div></div><p class="font-semibold text-ink mt-6 mb-2" data-glean-id="ps-params-title">PowerScale parameters: what this deployment uses</p><div class="overflow-x-auto rounded-lg border border-line my-4" data-glean-id="ps-params"><table class="w-full text-sm"><thead class="bg-dell-soft"><tr><th class="text-left p-3 font-semibold text-ink">Parameter</th><th class="text-left p-3 font-semibold text-ink">Scope</th><th class="text-left p-3 font-semibold text-ink">Set?</th><th class="text-left p-3 font-semibold text-ink">Value</th><th class="text-left p-3 font-semibold text-ink">Why</th></tr></thead><tbody><tr class="border-t border-line"><td class="p-3 font-mono text-xs text-dell">isi-path</td><td class="p-3 text-ink">Global</td><td class="p-3 font-semibold text-ok">Yes</td><td class="p-3 font-mono text-xs text-ink">/ifs/data/csi</td><td class="p-3 text-ink">Default is /ifs; must match the csi-user-owned base path</td></tr><tr class="border-t border-line"><td class="p-3 font-mono text-xs text-dell">isi-access-zone</td><td class="p-3 text-ink">Global</td><td class="p-3 font-semibold text-ok">Yes</td><td class="p-3 font-mono text-xs text-ink">System</td><td class="p-3 text-ink">Quota, snapshot, and SyncIQ privileges exist only in System</td></tr><tr class="border-t border-line"><td class="p-3 font-mono text-xs text-dell">isi-auth-type</td><td class="p-3 text-ink">Global</td><td class="p-3 font-semibold text-ok">Yes · added</td><td class="p-3 font-mono text-xs text-ink">1</td><td class="p-3 text-ink">Session login; Basic auth is off on both arrays (0 would return 401)</td></tr><tr class="border-t border-line"><td class="p-3 font-mono text-xs text-dell">cluster-name</td><td class="p-3 text-ink">Per storage entry</td><td class="p-3 font-semibold text-ok">Yes</td><td class="p-3 font-mono text-xs text-ink">ps1 / ps2</td><td class="p-3 text-ink">Required; must match remoteSystem in the replication StorageClass</td></tr><tr class="border-t border-line"><td class="p-3 font-mono text-xs text-dell">endpoint-port</td><td class="p-3 text-ink">Per storage entry</td><td class="p-3 font-semibold text-ok">Keep</td><td class="p-3 font-mono text-xs text-ink">8080</td><td class="p-3 text-ink">Default value, kept explicit</td></tr><tr class="border-t border-line"><td class="p-3 font-mono text-xs text-dell">isi-volume-path-permissions</td><td class="p-3 text-ink">Global / per entry</td><td class="p-3 font-semibold text-muted">No</td><td class="p-3 font-mono text-xs text-ink">default 0777</td><td class="p-3 text-ink">Tighten later if needed; clones and restores inherit from the source</td></tr><tr class="border-t border-line"><td class="p-3 font-mono text-xs text-dell">allowed-networks</td><td class="p-3 text-ink">Global</td><td class="p-3 font-semibold text-muted">No</td><td class="p-3 font-mono text-xs text-ink">—</td><td class="p-3 text-ink">Each K3s VM has one NIC on 192.168.1.0/24; use only to pin NFS to a specific network</td></tr><tr class="border-t border-line"><td class="p-3 font-mono text-xs text-dell">allowed-networks-mode</td><td class="p-3 text-ink">—</td><td class="p-3 font-semibold text-muted">No</td><td class="p-3 font-mono text-xs text-ink">—</td><td class="p-3 text-ink">Not in the dellctl 1.17 PowerScale reference; leave out</td></tr><tr class="border-t border-line"><td class="p-3 font-mono text-xs text-dell">max-isilon-volumes-per-node</td><td class="p-3 text-ink">Global</td><td class="p-3 font-semibold text-muted">No</td><td class="p-3 font-mono text-xs text-ink">default 0</td><td class="p-3 text-ink">0 lets Kubernetes decide</td></tr><tr class="border-t border-line"><td class="p-3 font-mono text-xs text-dell">az-reconcile-interval</td><td class="p-3 text-ink">Global</td><td class="p-3 font-semibold text-muted">No</td><td class="p-3 font-mono text-xs text-ink">default 1h</td><td class="p-3 text-ink">Access-zone network label reconcile; only matters with AzNetwork or multiple zones</td></tr><tr class="border-t border-line"><td class="p-3 font-mono text-xs text-dell">storage-class block</td><td class="p-3 text-ink">Per storage entry</td><td class="p-3 font-semibold text-muted">No</td><td class="p-3 font-mono text-xs text-ink">—</td><td class="p-3 text-ink">Defaults come from globals: AccessZone=System, IsiPath=/ifs/data/csi, RootClientEnabled=false, AzServiceIP=endpoint; AzNetwork not needed on one network</td></tr></tbody></table></div></section><section id="generate" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-generate">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">K4</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Generate the values files with dellctl</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Run once per cluster against that cluster’s kubeconfig. dellctl prompts for each PowerScale password.</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-generate"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+# dellctl writes its output to the current directory under a fixed name, overwriting on every run,
+# so each cluster runs in its own folder.
+cd $PS1_DIR &amp;&amp; KUBECONFIG=~/.kube/primary.yaml   dellctl install powerscale --from-file=primary-dellctl.yaml
+cd $PS2_DIR &amp;&amp; KUBECONFIG=~/.kube/secondary.yaml dellctl install powerscale --from-file=secondary-dellctl.yaml
+ls -l $PS1_DIR $PS2_DIR              # confirm the generated names match $GEN_VALUES and $GEN_MANIFEST
+grep "=== STEP" $PS1_DIR/dellctl.log $PS2_DIR/dellctl.log
+
+# Protect your edits: rename BOTH dellctl outputs to custom-* in each folder.
+# dellctl overwrites its fixed output names on every run; mv -n never overwrites an existing custom file.
+for D in $PS1_DIR $PS2_DIR; do
+  mv -n $D/$GEN_MANIFEST $D/$CUSTOM_MANIFEST
+  mv -n $D/$GEN_VALUES   $D/$CUSTOM_VALUES
+done
+ls -l $PS1_DIR $PS2_DIR
+
+# After any later re-run, compare the fresh output with your copy instead of replacing it:
+#   diff $PS1_DIR/$GEN_VALUES   $PS1_DIR/$CUSTOM_VALUES
+#   diff $PS1_DIR/$GEN_MANIFEST $PS1_DIR/$CUSTOM_MANIFEST</code></pre></div><div class="my-4 rounded-lg border border-warn bg-warn-soft p-4" data-glean-id="note-kubeconfig"><p class="font-semibold text-sm text-warn mb-1">Always prefix KUBECONFIG</p><div class="text-sm text-ink leading-relaxed">dellctl uses the <span class="font-mono">KUBECONFIG</span> environment variable, or <span class="font-mono">~/.kube/config</span> if it isn’t set. This management VM has no <span class="font-mono">~/.kube/config</span> on purpose, so a bare <span class="font-mono">dellctl install …</span> prints <span class="font-mono">WARN kubeconfig file not found, only offline YAML generation is allowed</span> and <span class="font-mono">stat /home/user/.kube/config: no such file or directory</span>, then keeps going without contacting the cluster. A <span class="font-mono">KUBECONFIG=…</span> assignment on its own line, or at the end of <span class="font-mono">cd … &amp;&amp; KUBECONFIG=…</span>, only creates an <em>unexported</em> shell variable that dellctl never sees. It must be on the same line just before <span class="font-mono">dellctl</span>, or set with <span class="font-mono">export KUBECONFIG=…</span>. Check with <span class="font-mono">printenv KUBECONFIG</span>, not <span class="font-mono">echo</span>, because echo also prints unexported variables. Don’t use that output. Delete it (<span class="font-mono">rm -f $GEN_VALUES $GEN_MANIFEST dellctl.log</span> in that folder) and re-run with the <span class="font-mono">KUBECONFIG=~/.kube/&lt;cluster&gt;.yaml</span> prefix shown above. Don’t create a <span class="font-mono">~/.kube/config</span> symlink, because a wrong default would silently target the other cluster.</div></div><p class="font-semibold text-ink mt-6 mb-2" data-glean-id="generate-expected-title">Expected results</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-generate-expected"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">expected output · primary (secondary mirrors it: secret primary, ps2/ps1 order)</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>$ cd $PS1_DIR &amp;&amp; KUBECONFIG=~/.kube/primary.yaml dellctl install powerscale --from-file=primary-dellctl.yaml
+INFO === STEP COMPLETED === "Validate Helm installation"
+INFO === STEP COMPLETED === "Add Helm repository"
+Enter password for array endpoint 192.168.1.20 (username csi-user):
+Enter password for array endpoint 192.168.1.200 (username csi-user):
+INFO Starting installation... (Timeout: 1h30m0s)
+INFO PowerScale Cluster (https://192.168.1.20) discovered with Name: ps1, Access Zones: [System]
+INFO user csi-user have required privileges in access zone System in PowerScale Cluster ps1.
+INFO PowerScale Cluster (https://192.168.1.200) discovered with Name: ps2, Access Zones: [System]
+INFO user csi-user have required privileges in access zone System in PowerScale Cluster ps2.
+INFO 2 PowerScale Cluster(s) discovered
+INFO === STEP COMPLETED === "Generate Volume Snapshot CRDs and Snapshot Controller YAML"
+INFO === STEP COMPLETED === "Generate driver secrets YAML"
+INFO === STEP COMPLETED === "Generate VolumeSnapshotClass YAML"
+INFO === STEP COMPLETED === "Generate StorageClass YAML"
+ WARN --csi-node-prefix is not supported for csi-isilon; ignoring value "csi-node"
+INFO === STEP COMPLETED === "Deploy CSI driver via Helm"
+INFO secret secondary generated
+INFO config map dell-replication-controller-config generated
+INFO YAML output written to file: csm-powerscale-install.yaml.
+INFO Helm output values written to file: powerscale-values-override.yaml.
+
+$ ls -l
+-rw-------  csm-powerscale-install.yaml        # ~134 KB
+drwxrwxr-x  dellctl-external-snapshotter/
+-rw-r--r--  dellctl.log
+-rw-------  powerscale-values-override.yaml    # ~0.7 KB
+-rw-rw-r--  primary-dellctl.yaml
+
+# after the rename above
+$ ls -l
+-rw-------  custom-csm-powerscale-install.yaml        # ~134 KB
+-rw-------  custom-powerscale-values-override.yaml    # ~0.7 KB
+drwxrwxr-x  dellctl-external-snapshotter/
+-rw-r--r--  dellctl.log
+-rw-rw-r--  primary-dellctl.yaml</code></pre></div><ul class="list-disc pl-5 space-y-1 text-sm text-ink leading-relaxed mb-4" data-glean-id="generate-expected-checks">
+<li><strong>No</strong> <span class="font-mono">kubeconfig file not found</span> warning. If you see it, the output is offline-only (see above).</li>
+<li>Both arrays show <span class="font-mono">user csi-user have required privileges in access zone System</span>, so dellctl itself validated the step 02b role.</li>
+<li><span class="font-mono">secret secondary generated</span> (on the secondary run: <span class="font-mono">secret primary</span>) shows the remote-cluster wiring for replication was created.</li>
+<li>“Deploy CSI driver via Helm” takes 0s because <span class="font-mono">output: true</span> only writes files. Nothing is installed until step K5.</li>
+<li>The <span class="font-mono">--csi-node-prefix</span> WARN is harmless: it’s a dellctl default that the PowerScale driver ignores.</li>
+<li>Rename <strong>both</strong> outputs to <span class="font-mono">custom-*</span> before anything else. dellctl writes fixed file names and overwrites them on every run.</li><li><span class="font-mono">custom-csm-powerscale-install.yaml</span> stays mode 0600 because it contains the array credentials. Keep it out of shared folders and tickets.</li></ul><p class="text-sm text-ink leading-relaxed mb-2 max-w-prose" data-glean-id="generate-next">With <span class="font-mono">output: true</span>, dellctl hasn’t changed anything on the clusters yet. Everything it generated is in the two <span class="font-mono">custom-*</span> files in each folder. Step K5 applies the prerequisites from the manifest, and step K6 installs the driver with Helm.</p></section><section id="customize" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-customize"><div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">K5</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Split the manifest and apply prerequisites</h2></div><p class="text-base text-muted leading-relaxed mb-4 max-w-prose">dellctl produced two files per cluster. <span class="font-mono">custom-powerscale-values-override.yaml</span> is for Helm (step K6). <span class="font-mono">custom-csm-powerscale-install.yaml</span> holds everything Helm doesn’t create. Split the manifest into numbered files with yq, apply 01–05 now, and apply 06 after Helm.</p><div class="overflow-x-auto rounded-lg border border-line my-4" data-glean-id="split-order"><table class="w-full text-sm"><thead class="bg-dell-soft"><tr><th class="text-left p-3 font-semibold text-ink">File</th><th class="text-left p-3 font-semibold text-ink">Contents</th><th class="text-left p-3 font-semibold text-ink">Apply</th></tr></thead><tbody><tr class="border-t border-line"><td class="p-3 font-mono text-xs text-ink">01_snapshot-crds.yaml</td><td class="p-3 text-ink">6 CustomResourceDefinitions: VolumeSnapshot*, VolumeGroupSnapshot*</td><td class="p-3 font-semibold text-ink">Before Helm</td></tr><tr class="border-t border-line"><td class="p-3 font-mono text-xs text-ink">02_snapshot-controller.yaml</td><td class="p-3 text-ink">ServiceAccount, ClusterRole/Binding, Role/Binding, Deployment: the common snapshot controller</td><td class="p-3 font-semibold text-ink">Before Helm</td></tr><tr class="border-t border-line"><td class="p-3 font-mono text-xs text-ink">03_driver-secrets.yaml</td><td class="p-3 text-ink"><span class="font-mono">isilon-creds</span> (both arrays) and <span class="font-mono">isilon-certs-0</span> in <span class="font-mono">isilon</span> · credentials</td><td class="p-3 font-semibold text-ink">Before Helm</td></tr><tr class="border-t border-line"><td class="p-3 font-mono text-xs text-ink">04_volumesnapshotclass.yaml</td><td class="p-3 text-ink">VolumeSnapshotClass for the driver</td><td class="p-3 font-semibold text-ink">Before Helm</td></tr><tr class="border-t border-line"><td class="p-3 font-mono text-xs text-ink">05_storageclass.yaml</td><td class="p-3 text-ink">3 StorageClasses, including the replication class</td><td class="p-3 font-semibold text-ink">Before Helm</td></tr><tr class="border-t border-line"><td class="p-3 font-mono text-xs text-ink">06_replication.yaml</td><td class="p-3 text-ink">Remote-cluster Secret + replication controller ConfigMap · credentials</td><td class="p-3 font-semibold text-dell">After Helm (step K6)</td></tr></tbody></table></div><div class="my-6 rounded-lg border border-line bg-card p-5" data-glean-id="vscode-remote"><p class="font-mono text-xs uppercase tracking-wider text-dell mb-1">Optional</p><h3 class="text-lg font-semibold text-ink mb-2">Review and edit with VS Code Remote-SSH</h3><p class="text-sm text-ink leading-relaxed mb-2">Open the management VM (<span class="font-mono">user@192.168.1.108</span>) in VS Code. Files are edited in place on the VM, and the integrated terminal also runs there, so <span class="font-mono">source ~/csm-env.sh</span>, the step K4 KUBECONFIG rule, and every command in this guide work unchanged.</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-vscode-connect"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">workstation · vs code remote-ssh</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code># Workstation: install Remote - SSH (Extensions view, or CLI)
+code --install-extension ms-vscode-remote.remote-ssh
+
+# Workstation SSH config  (Linux/macOS: ~/.ssh/config · Windows: %USERPROFILE%\.ssh\config)
+Host csm-mgmt
+  HostName 192.168.1.108
+  User user
+
+# Connect: F1 → "Remote-SSH: Connect to Host…" → csm-mgmt → File › Open Folder → /home/user
+# Then in the Extensions view, install "YAML" (redhat.vscode-yaml) with "Install in SSH: csm-mgmt"</code></pre></div><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-vscode-settings"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm · ~/.vscode/settings.json</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code># Management VM: workspace settings for /home/user (or use the VS Code integrated terminal)
+mkdir -p ~/.vscode &amp;&amp; cat &gt; ~/.vscode/settings.json &lt;&lt;'EOF'
+{
+  "files.eol": "\n",
+  "editor.insertSpaces": true,
+  "editor.tabSize": 2,
+  "editor.renderWhitespace": "boundary",
+  "files.exclude":        { "**/dellctl-external-snapshotter": true },
+  "files.watcherExclude": { "**/dellctl-external-snapshotter/**": true },
+  "search.exclude":       { "**/dellctl-external-snapshotter": true}
+}
+EOF</code></pre></div>
+<ul class="list-disc pl-5 space-y-1 text-sm text-ink leading-relaxed" data-glean-id="vscode-tips">
+<li><strong>Edit only</strong> <span class="font-mono">custom-powerscale-values-override.yaml</span> in each folder. Helm installs from it with <span class="font-mono">-f</span>.</li>
+<li><span class="font-mono">custom-csm-powerscale-install.yaml</span> (~134 KB) is a reference manifest: snapshot CRDs, the snapshot controller, Secrets, VolumeSnapshotClass, StorageClasses, and the replication Secret/ConfigMap. Helm doesn’t read it; step K5 splits it into numbered files.</li>
+<li><strong>PS1 vs PS2:</strong> in Explorer, right-click <span class="font-mono">ps1-install/custom-powerscale-values-override.yaml</span> → <em>Select for Compare</em>, then the ps2 copy → <em>Compare with Selected</em>. This is the same check as the <span class="font-mono">diff</span> below.</li>
+<li>The status bar should show <span class="font-mono">LF</span> and <span class="font-mono">Spaces: 2</span>. CRLF or tabs will break the YAML.</li></ul>
+<div class="mt-4 rounded-lg border border-warn bg-warn-soft p-4" data-glean-id="note-vscode-secrets"><p class="font-semibold text-sm text-warn mb-1">Keep credentials out of AI chat</p><div class="text-sm text-ink leading-relaxed"><span class="font-mono">custom-csm-powerscale-install.yaml</span> contains the <span class="font-mono">csi-user</span> passwords for both arrays inside Secret objects. They are encoded, not encrypted. VS Code Chat / Copilot can automatically add the open file as context, so remove it from the chat box (×) or close the file before using chat. Never paste it into AI tools, tickets, or shared drives.</div></div></div><div class="mt-10" data-glean-id="h-split-tools"><p class="font-mono text-xs uppercase tracking-wider text-dell mb-1">K5a</p><h3 class="text-lg font-semibold text-ink mb-2">Install yq</h3></div><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-split-tools"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm · yq</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code># yq v4 (mikefarah). Skip if `yq --version` already shows v4.x
+sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+sudo chmod +x /usr/local/bin/yq &amp;&amp; yq --version</code></pre></div><div class="mt-10" data-glean-id="h-split"><p class="font-mono text-xs uppercase tracking-wider text-dell mb-1">K5b</p><h3 class="text-lg font-semibold text-ink mb-2">Split each manifest</h3></div><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-split"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm · split each manifest</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+split_manifest() {   # $1 = install dir   (v5: 03/06 split by object NAME, namespace shown as @ns)
+  ( cd $1 &amp;&amp; umask 077 &amp;&amp; M=$CUSTOM_MANIFEST
+    yq 'select(.kind == "CustomResourceDefinition")'                          $M &gt; 01_snapshot-crds.yaml
+    yq 'select(.kind == "ServiceAccount" or .kind == "ClusterRole" or .kind == "ClusterRoleBinding"
+               or .kind == "Role" or .kind == "RoleBinding" or .kind == "Deployment")' $M &gt; 02_snapshot-controller.yaml
+    yq 'select(.kind == "Secret" and (.metadata.name == "isilon-creds" or (.metadata.name | test("^isilon-certs"))))' $M &gt; 03_driver-secrets.yaml
+    yq 'select(.kind == "VolumeSnapshotClass")'                               $M &gt; 04_volumesnapshotclass.yaml
+    yq 'select(.kind == "StorageClass")'                                      $M &gt; 05_storageclass.yaml
+    yq 'select((.kind == "Secret" and .metadata.name != "isilon-creds" and (.metadata.name | test("^isilon-certs") | not)) or .kind == "ConfigMap")' \
+                                                                              $M &gt; 06_replication.yaml
+    # Every object must land in exactly one file: no output from diff = nothing lost
+    diff &lt;(yq -N '.kind' $M | sort) &lt;(yq -N '.kind' 0?_*.yaml | sort) &amp;&amp; echo "$1: all objects split"
+    for f in 0?_*.yaml; do printf '%-30s %s\n' $f "$(yq -N '.kind + "/" + .metadata.name + "@" + (.metadata.namespace // "-")' $f | paste -sd' ')"; done )
+}
+split_manifest $PS1_DIR
+split_manifest $PS2_DIR</code></pre></div><p class="font-semibold text-ink mt-4 mb-2">Expected results</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-split-expected"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">expected output</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>/home/user/ps1-install: all objects split
+01_snapshot-crds.yaml          CustomResourceDefinition/volumesnapshotclasses.snapshot.storage.k8s.io …(6)
+02_snapshot-controller.yaml    ServiceAccount/… ClusterRole/… ClusterRoleBinding/… Role/… RoleBinding/… Deployment/…
+03_driver-secrets.yaml         Secret/isilon-creds Secret/isilon-certs-0
+04_volumesnapshotclass.yaml    VolumeSnapshotClass/…
+05_storageclass.yaml           StorageClass/… StorageClass/… StorageClass/…
+06_replication.yaml            Secret/secondary ConfigMap/dell-replication-controller-config
+# ps2-install is the same except 06 holds Secret/primary</code></pre></div><div class="my-4 rounded-lg border border-warn bg-warn-soft p-4" data-glean-id="note-split-v5"><p class="font-semibold text-sm text-warn mb-1">v5 fix · split by name, not by namespace</p><div class="text-sm text-ink leading-relaxed">v4 sent to <span class="font-mono">06</span> every Secret that was <em>not</em> in <span class="font-mono">isilon</span>, but steps K6/K7 then expected the remote-cluster Secret <em>in</em> <span class="font-mono">isilon</span> — both can’t be true. v5 splits by object name and prints each object’s namespace (<span class="font-mono">@ns</span>). Note the namespace shown for <span class="font-mono">Secret/secondary</span> and <span class="font-mono">ConfigMap/dell-replication-controller-config</span>; step K6 checks it against where the controller actually runs.</div></div><div class="mt-10" data-glean-id="h-sc-review"><p class="font-mono text-xs uppercase tracking-wider text-dell mb-1">K5b+</p><h3 class="text-lg font-semibold text-ink mb-2">Review the replication StorageClass before applying it</h3></div><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-sc-review"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm · v5</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+for D in $PS1_DIR $PS2_DIR; do echo "== $D"
+  yq 'select(.parameters["replication.storage.dell.com/isReplicationEnabled"] == "true")
+      | .metadata.name + "  " + (.parameters | to_entries | map(.key + "=" + .value) | join("  "))' $D/05_storageclass.yaml
+done
+# Check: volumeGroupPrefix (csi-pri / csi-sec), remoteClusterID, remoteSystem, remoteStorageClassName,
+#        IsiPath identical on both sides, ignoreNamespaces=false, rpo.
+
+# Recommended for DR (verify the parameter names for your CSM version first):
+# keep the replica PV and RG when a PVC or namespace is deleted on the source.
+for D in $PS1_DIR $PS2_DIR; do
+  yq -i '(select(.parameters["replication.storage.dell.com/isReplicationEnabled"] == "true") | .parameters["replication.storage.dell.com/remotePVRetentionPolicy"]) = "Retain" |
+         (select(.parameters["replication.storage.dell.com/isReplicationEnabled"] == "true") | .parameters["replication.storage.dell.com/remoteRGRetentionPolicy"]) = "Retain"' $D/05_storageclass.yaml
+done</code></pre></div><p class="text-sm text-muted leading-relaxed mt-2 max-w-prose" data-glean-id="sc-review-note">Do this before K5c: StorageClass parameters are immutable once applied. Retention policies are explained in section 03. <span class="pill warn">verify</span></p><div class="my-4 rounded-lg border border-warn bg-warn-soft p-4" data-glean-id="note-remote-sc"><p class="font-semibold text-sm text-warn mb-1">Remote-array StorageClass</p><div class="text-sm text-ink leading-relaxed">dellctl creates a StorageClass for every array in the config, including the remote one. If you don’t want to provision against the remote array from this cluster (PS2 from primary, or PS1 from secondary), delete that extra StorageClass from <span class="font-mono">05_storageclass.yaml</span> before step K5c. It’s the standard (non-replication) class whose <span class="font-mono">ClusterName</span> is the remote array. Keep the replication class and both arrays in <span class="font-mono">isilon-creds</span>, because replication needs them.</div></div><div class="mt-10" data-glean-id="h-apply"><p class="font-mono text-xs uppercase tracking-wider text-dell mb-1">K5c</p><h3 class="text-lg font-semibold text-ink mb-2">Apply prerequisites 01–05</h3></div><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-apply-prereqs"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm · apply 01–05</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+apply_prereqs() {    # $1 = install dir  $2 = kp|ks
+  ( cd $1
+    $2 apply -f 01_snapshot-crds.yaml
+    $2 wait --for=condition=Established -f 01_snapshot-crds.yaml --timeout=60s
+    $2 apply -f 02_snapshot-controller.yaml
+    $2 create ns $CSI_NS --dry-run=client -o yaml | $2 apply -f -
+    $2 apply -f 03_driver-secrets.yaml
+    $2 apply -f 04_volumesnapshotclass.yaml
+    $2 apply -f 05_storageclass.yaml )
+}
+apply_prereqs $PS1_DIR kp      # primary manifest → primary cluster
+apply_prereqs $PS2_DIR ks      # secondary manifest → secondary cluster
+
+for K in kp ks; do echo "== $K"
+  $K get crd | grep -c snapshot.storage.k8s.io          # expect 6
+  $K get deploy -A | grep snapshot-controller           # READY 1/1
+  $K -n $CSI_NS get secret isilon-creds isilon-certs-0
+  $K get volumesnapshotclass
+  $K get sc
+done</code></pre></div><div class="my-4 rounded-lg border border-dell bg-dell-soft p-4" data-glean-id="note-split-order"><p class="font-semibold text-sm text-dell mb-1">Why 06 waits until after Helm</p><div class="text-sm text-ink leading-relaxed">This matches dellctl’s own order: snapshot CRDs and controller, driver Secrets, VolumeSnapshotClass, StorageClasses, then the Helm deploy, and only then the replication Secrets and ConfigMap. The Helm chart creates the <span class="font-mono">dell-replication-controller</span> namespace. Never apply one folder’s files to the other cluster. <span class="font-mono">03</span> and <span class="font-mono">06</span> contain credentials and are written mode 0600.</div></div><div class="mt-10" data-glean-id="h-values"><p class="font-mono text-xs uppercase tracking-wider text-dell mb-1">K5d</p><h3 class="text-lg font-semibold text-ink mb-2">Values file for Helm</h3></div><p class="text-sm text-muted mb-2" data-glean-id="values-lead">Expected overlay shape (dellctl writes only values that differ from chart defaults):</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-values-shape"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">custom-powerscale-values-override.yaml · expected shape</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>csi-isilon:
+  enabled: true
+  isiPath: "/ifs/data/csi"
+  isiAccessZone: "System"
+  isiAuthType: 1                # session login; Basic auth stays off on OneFS
+  isiVolumePathPermissions: "0777"
+  controller:
+    controllerCount: 2          # → 1 on single-node K3s
+    snapshot:  { enabled: true }
+    resizer:   { enabled: true }
+    replication:
+      enabled: true             # must be true on both clusters
+  storageCapacity: { enabled: true }
+  maxIsilonVolumesPerNode: 0
+csm-replication:
+  enabled: true                 # deploys the replication controller</code></pre></div><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-customize"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm · values</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+# Single-node K3s: set controllerCount to 1 in both values files
+sed -i 's/controllerCount: 2/controllerCount: 1/' $PS1_DIR/$CUSTOM_VALUES $PS2_DIR/$CUSTOM_VALUES
+
+# Confirm controllerCount is set to 1 and isiAuthType is set to 1 in both files
+grep -nE "controllerCount|isiAuthType" $PS1_DIR/$CUSTOM_VALUES $PS2_DIR/$CUSTOM_VALUES
+
+# Compare the PS1 and PS2 values files
+diff $PS1_DIR/$CUSTOM_VALUES $PS2_DIR/$CUSTOM_VALUES
+
+# Render locally (no cluster change) to catch values errors before step K6
+helm template isilon dell/container-storage-modules -n $CSI_NS --version $CHART_VERSION \
+  -f $PS1_DIR/$CUSTOM_VALUES &gt; $PS1_DIR/primary-rendered.yaml   &amp;&amp; echo primary OK
+helm template isilon dell/container-storage-modules -n $CSI_NS --version $CHART_VERSION \
+  -f $PS2_DIR/$CUSTOM_VALUES &gt; $PS2_DIR/secondary-rendered.yaml &amp;&amp; echo secondary OK
+
+# Option A only (section 03): let the replication controller create PVCs on the failover cluster.
+# The key lives in the csm-replication subchart; find its exact name/path in this chart version:
+helm show values dell/container-storage-modules --version $CHART_VERSION | grep -n -i -B3 -A3 "pvccreation"
+# then set it to true in BOTH custom values files and re-run the helm template checks above.</code></pre></div></section><section id="helm" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-helm"><div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">K6</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Install with Helm, then apply replication wiring</h2></div><p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Use release name <span class="font-mono">isilon</span> in namespace <span class="font-mono">isilon</span>, matching the <span class="font-mono">isilon-creds</span> Secret from file 03. <span class="font-mono">upgrade --install</span> makes reruns safe.</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-helm"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+# 1. Driver + replication controller (01–05 already applied in step K5)
+hp upgrade --install isilon dell/container-storage-modules -n $CSI_NS --create-namespace \
+  --version $CHART_VERSION -f $PS1_DIR/$CUSTOM_VALUES --wait --timeout 15m
+hs upgrade --install isilon dell/container-storage-modules -n $CSI_NS --create-namespace \
+  --version $CHART_VERSION -f $PS2_DIR/$CUSTOM_VALUES --wait --timeout 15m
+hp list -n $CSI_NS; hs list -n $CSI_NS
+
+# 2. Where did the chart put the replication controller? (v4 assumed isilon)
+export REPL_NS=$(kp get deploy -A --no-headers | awk '$2=="dell-replication-controller-manager"{print $1}')
+echo "replication controller namespace: $REPL_NS"
+grep -q '^export REPL_NS=' ~/csm-env.sh || echo "export REPL_NS=$REPL_NS" &gt;&gt; ~/csm-env.sh
+#    The Secret + ConfigMap in 06 must be in that SAME namespace
+for D in $PS1_DIR $PS2_DIR; do yq -N '.kind + "/" + .metadata.name + "@" + (.metadata.namespace // "-")' $D/06_replication.yaml; done
+#    If they differ:  yq -i '.metadata.namespace = strenv(REPL_NS)' $PS1_DIR/06_replication.yaml $PS2_DIR/06_replication.yaml
+
+# 3. Replication wiring: remote-cluster Secret + controller ConfigMap, then restart the controller
+kp apply -f $PS1_DIR/06_replication.yaml
+ks apply -f $PS2_DIR/06_replication.yaml
+kp -n $REPL_NS rollout restart deploy/dell-replication-controller-manager
+ks -n $REPL_NS rollout restart deploy/dell-replication-controller-manager
+
+# 4. Verify (run for kp, then ks)
+kp get all -n $CSI_NS                 # isilon-controller 7/7, isilon-node 2/2
+kp get deploy,secret,cm -n $REPL_NS   # dell-replication-controller-manager 1/1, remote-cluster Secret, dell-replication-controller-config</code></pre></div><div class="my-4 rounded-lg border border-warn bg-warn-soft p-4" data-glean-id="note-replns"><p class="font-semibold text-sm text-warn mb-1">v5 fix · detect the replication namespace</p><div class="text-sm text-ink leading-relaxed">v4 said the chart creates <span class="font-mono">dell-replication-controller</span> but restarted the controller in <span class="font-mono">isilon</span>. v5 reads the real namespace into <span class="font-mono">REPL_NS</span> and uses it everywhere. The expected output below is from the v4 lab, where the controller ran in <span class="font-mono">isilon</span>; if <span class="font-mono">REPL_NS</span> is different, the replication pod, Secret and ConfigMap appear there instead.</div></div><p class="font-semibold text-ink mt-4 mb-2" data-glean-id="helm-expected-title">Expected results (Helm, part 1)</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-helm-expected"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">expected output</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>Release "isilon" does not exist. Installing it now.
+NAME: isilon
+NAMESPACE: isilon
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+# same for hs (secondary)
+
+$ hp list -n $CSI_NS; hs list -n $CSI_NS
+NAME    NAMESPACE  REVISION  STATUS    CHART                              APP VERSION
+isilon  isilon     1         deployed  container-storage-modules-1.11.2   1.11.2
+isilon  isilon     1         deployed  container-storage-modules-1.11.2   1.11.2</code></pre></div><p class="font-semibold text-ink mt-4 mb-2" data-glean-id="repl-expected-title">Expected results (replication wiring, parts 2–3)</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-repl-expected"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">expected output · primary (kp)</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>$ kp get all -n isilon
+NAME                                                   READY  STATUS   RESTARTS      AGE
+pod/dell-replication-controller-manager-76d8d4b856-…   1/1    Running  0             86s   &lt;- new pod from restart
+pod/isilon-controller-7d96d6c988-…                     7/7    Running  1 (18m ago)   18m
+pod/isilon-node-…                                      2/2    Running  0             18m
+...
+NAME                                                     DESIRED  CURRENT  READY
+replicaset.apps/dell-replication-controller-manager-544964884   0   0   0   &lt;- old, scaled down
+replicaset.apps/dell-replication-controller-manager-76d8d4b856  1   1   1   &lt;- current
+
+$ kp get secret -n isilon
+isilon-certs-0                  Opaque
+isilon-creds                    Opaque
+replication-secret              kubernetes.io/service-account-token
+secondary                       Opaque          &lt;- remote-cluster kubeconfig from 06
+sh.helm.release.v1.isilon.v1    helm.sh/release.v1
+
+$ kp get cm -n isilon
+dell-replication-controller-config   1
+isilon-config-params                 1
+kube-root-ca.crt                     1
+
+# Secondary (ks) is the same except the remote-cluster Secret is named "primary"</code></pre></div><div class="my-4 rounded-lg border border-dell bg-dell-soft p-4" data-glean-id="note-repl-expected"><p class="font-semibold text-sm text-dell mb-1">How to read it</p><div class="text-sm text-ink leading-relaxed">The restart worked if the replication manager pod is younger than the other pods and the old ReplicaSet shows <span class="font-mono">0 0 0</span>. A single early restart on <span class="font-mono">isilon-controller</span> is normal as long as the count doesn’t keep rising.</div></div><div class="my-4 rounded-lg border border-warn bg-warn-soft p-4" data-glean-id="note-dryrun"><p class="font-semibold text-sm text-warn mb-1">Preview and upgrades</p><div class="text-sm text-ink leading-relaxed">Add <span class="font-mono">--dry-run=server</span> to either Helm command to validate against the live API without changing anything. kubectl may warn about a missing last-applied annotation when 06 updates the ConfigMap the chart created; that’s expected. After any later <span class="font-mono">helm upgrade</span>, re-apply <span class="font-mono">06_replication.yaml</span> and restart the controller, because the chart can reset its ConfigMap.</div></div></section><section id="wire" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-wire">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">K7</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Verify the replication wiring</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">There’s nothing to create here. Because both kubeconfigs were registered with dellctl, it generated the cross-cluster wiring in <span class="font-mono">06_replication.yaml</span>: a <span class="font-mono">secondary</span> Secret for the primary cluster and a <span class="font-mono">primary</span> Secret for the secondary cluster, both in the replication controller’s namespace (<span class="font-mono">$REPL_NS</span>, found in K6), plus the controller ConfigMap. Step K6 applied them and restarted the controller, which uses those Secrets to reach the other cluster. This step only confirms they’re correct.</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-wire"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+# 1. Remote-cluster Secrets from dellctl: each should point to the OTHER cluster's API server
+kp get secret secondary -n $REPL_NS -o go-template='{{range .data}}{{.|base64decode}}{{end}}' | grep server:
+ks get secret primary   -n $REPL_NS -o go-template='{{range .data}}{{.|base64decode}}{{end}}' | grep server:
+
+# 2. Controller ConfigMap: local clusterId + target that references the remote Secret
+for K in kp ks; do echo "== $K"
+  $K get cm dell-replication-controller-config -n $REPL_NS -o yaml | sed -n '/data:/,$p'
+done
+
+# 3. Controller logs: no errors reaching the remote cluster
+kp logs -n $REPL_NS deploy/dell-replication-controller-manager --tail=50
+ks logs -n $REPL_NS deploy/dell-replication-controller-manager --tail=50</code></pre></div><div class="my-4 rounded-lg border border-dell bg-dell-soft p-4" data-glean-id="note-wire-good"><p class="font-semibold text-sm text-dell mb-1">What good looks like</p><div class="text-sm text-ink leading-relaxed"><strong>Secrets:</strong> on primary, the <span class="font-mono">secondary</span> Secret shows <span class="font-mono">server: https://192.168.1.107:6443</span>. On secondary, the <span class="font-mono">primary</span> Secret shows <span class="font-mono">server: https://192.168.1.105:6443</span>. <strong>ConfigMap:</strong> on primary, <span class="font-mono">clusterId: primary</span> with a target <span class="font-mono">secondary</span> that references the <span class="font-mono">secondary</span> Secret. On secondary, the reverse. Cluster IDs must match the <span class="font-mono">remoteClusterID</span> in your replication StorageClasses. <strong>Logs:</strong> no connection, authentication, or certificate errors.</div></div><div class="my-4 rounded-lg border border-warn bg-warn-soft p-4" data-glean-id="note-ca"><p class="font-semibold text-sm text-warn mb-1">If a Secret points to 127.0.0.1</p><div class="text-sm text-ink leading-relaxed">The default K3s <span class="font-mono">k3s.yaml</span> uses <span class="font-mono">https://127.0.0.1:6443</span>, which the remote controller can’t reach. Fix the <span class="font-mono">server:</span> line in <span class="font-mono">~/.kube/primary.yaml</span> or <span class="font-mono">~/.kube/secondary.yaml</span>, re-run dellctl and step K5b, then re-apply <span class="font-mono">06_replication.yaml</span> and restart the controller (step K6, part 2).</div></div><div class="my-4 rounded-lg border border-warn bg-warn-soft p-4" data-glean-id="note-inject"><p class="font-semibold text-sm text-warn mb-1">K3s track: don’t run repctl cluster inject</p><div class="text-sm text-ink leading-relaxed">dellctl already generated the remote-cluster Secrets in <span class="font-mono">06_replication.yaml</span>; <span class="font-mono">repctl cluster inject</span> would add a second, conflicting set. You still need <span class="font-mono">repctl cluster add</span> (K2). The OpenShift track uses the opposite approach (inject, no dellctl wiring) — use one method per cluster pair, never both.</div></div></section><section id="verify" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-verify">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">K8</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Verify the installation</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Check each layer: Helm release, driver pods, replication controller, and paired StorageClasses.</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-verify"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>for K in kp ks; do echo "== $K =="
+  $K get pods -n $CSI_NS                                   # replication manager + driver controller + node, Running
+  $K get sc | grep -i isilon
+done
+hp get values isilon -n $CSI_NS        # exactly what was applied
+
+kp get sc -o custom-columns=NAME:.metadata.name,REMOTE:'.parameters.replication\.storage\.dell\.com/remoteStorageClassName' | grep -i repl
+ks get sc -o custom-columns=NAME:.metadata.name,REMOTE:'.parameters.replication\.storage\.dell\.com/remoteStorageClassName' | grep -i repl</code></pre></div><div class="my-4 rounded-lg border border-warn bg-warn-soft p-4" data-glean-id="note-sc-pair"><p class="font-semibold text-sm text-warn mb-1">StorageClass pairing check</p><div class="text-sm text-ink leading-relaxed">dellctl’s Helm naming is <span class="font-mono">isilon-replication-&lt;cluster-name&gt;</span>, so the two sides can have different names. The REMOTE value on each cluster must be an existing StorageClass on the other. If not, fix <span class="font-mono">remoteStorageClassName</span> in that folder’s <span class="font-mono">05_storageclass.yaml</span>, then <span class="font-mono">delete sc &lt;name&gt;</span> and re-apply the file. StorageClass parameters are immutable.</div></div></section><section id="test" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-test">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">K9</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Test a replicated volume</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Create a PVC on the primary cluster with the replication StorageClass.</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-test"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>SC=$(kp get sc -o name | grep -i replication | head -1 | cut -d/ -f2); echo $SC
+
+cat &lt;&lt;EOF | kp apply -f -
+apiVersion: v1
+kind: Namespace
+metadata: { name: rep-test }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: rep-pvc, namespace: rep-test }
+spec:
+  accessModes: [ReadWriteMany]
+  resources: { requests: { storage: 5Gi } }
+  storageClassName: ${SC}
+---
+apiVersion: v1
+kind: Pod
+metadata: { name: writer, namespace: rep-test }
+spec:
+  containers:
+  - name: app
+    image: busybox:1.36
+    command: ["sh","-c","date &gt; /data/hello.txt; sleep 3600"]
+    volumeMounts: [{ name: d, mountPath: /data }]
+  volumes: [{ name: d, persistentVolumeClaim: { claimName: rep-pvc } }]
+EOF
+
+kp get pvc,pod -n rep-test
+kp get rg            # DellCSIReplicationGroup on primary
+ks get rg            # mirrored group on secondary
+ks get pv            # replicated PV on secondary</code></pre></div><p class="text-sm text-muted leading-relaxed mt-2" data-glean-id="test-onefs">On PowerScale A, run <span class="font-mono">isi sync policies list</span> to confirm a SyncIQ policy targets PowerScale B.</p><div class="my-4 rounded-lg border border-dell bg-dell-soft p-4" data-glean-id="note-test-next"><p class="font-semibold text-sm text-dell mb-1">This is a single-namespace smoke test</p><div class="text-sm text-ink leading-relaxed">It proves the wiring, not DR. Delete <span class="font-mono">rep-test</span> (E3) and continue with <a class="text-dell" href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#dr-onboard">D1</a> to protect several namespaces and exercise failover.</div></div></section><div class="part-band" data-glean-id="part-c"><div class="k">CSM Operator · new in v5</div><div class="t">Part C · OpenShift track</div><div class="s">Replaces Part B on OpenShift clusters.</div></div><section id="ocp-prep" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-ocp-prep">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">O1</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">OpenShift: what changes, and node checks</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Same storage and DR logic; different installer and some platform specifics. Run section 02 first.</p><div class="overflow-x-auto rounded-lg border border-line my-4" data-glean-id="ocp-diff"><table class="w-full text-sm"><thead class="bg-dell-soft"><tr><th class="text-left p-3 font-semibold text-ink">Area</th><th class="text-left p-3 font-semibold text-ink">K3s track (Part B)</th><th class="text-left p-3 font-semibold text-ink">OpenShift track (Part C)</th></tr></thead><tbody class="bg-card"><tr class="border-t border-line" data-glean-id="ocp-diff-row-0"><td class="p-3 text-ink align-top">Driver install</td><td class="p-3 text-ink align-top">Helm chart + dellctl-generated values</td><td class="p-3 text-ink align-top">Certified <strong>CSM Operator</strong> from OperatorHub + <span class="font-mono">ContainerStorageModule</span> custom resource (Helm is also supported)</td></tr><tr class="border-t border-line" data-glean-id="ocp-diff-row-1"><td class="p-3 text-ink align-top">Replication CRDs</td><td class="p-3 text-ink align-top">From the split manifest</td><td class="p-3 text-ink align-top">Installed by the Operator when replication is enabled (CSM 1.14+)</td></tr><tr class="border-t border-line" data-glean-id="ocp-diff-row-2"><td class="p-3 text-ink align-top">Snapshot CRDs + controller</td><td class="p-3 text-ink align-top">Installed in K5 (01, 02)</td><td class="p-3 text-ink align-top">Already part of OpenShift — skip</td></tr><tr class="border-t border-line" data-glean-id="ocp-diff-row-3"><td class="p-3 text-ink align-top">Node prep</td><td class="p-3 text-ink align-top"><span class="font-mono">apt install nfs-common</span></td><td class="p-3 text-ink align-top">RHCOS is immutable and already has the NFS client; test with <span class="font-mono">oc debug node</span></td></tr><tr class="border-t border-line" data-glean-id="ocp-diff-row-4"><td class="p-3 text-ink align-top">Cluster API address</td><td class="p-3 text-ink align-top">IPs (192.168.1.x:6443)</td><td class="p-3 text-ink align-top"><span class="font-mono">api.&lt;cluster&gt;.&lt;domain&gt;:6443</span>; must resolve from the bastion and from the replication controller pods</td></tr><tr class="border-t border-line" data-glean-id="ocp-diff-row-5"><td class="p-3 text-ink align-top">Cross-cluster wiring</td><td class="p-3 text-ink align-top">dellctl Secrets in 06, no inject</td><td class="p-3 text-ink align-top"><span class="font-mono">repctl cluster add</span> + <span class="font-mono">repctl cluster inject</span> (Dell Operator procedure)</td></tr><tr class="border-t border-line" data-glean-id="ocp-diff-row-6"><td class="p-3 text-ink align-top">StorageClasses</td><td class="p-3 text-ink align-top">dellctl-generated (05)</td><td class="p-3 text-ink align-top">Created explicitly as a pair (O5)</td></tr><tr class="border-t border-line" data-glean-id="ocp-diff-row-7"><td class="p-3 text-ink align-top">Upgrades</td><td class="p-3 text-ink align-top"><span class="font-mono">helm upgrade</span>, then re-apply 06</td><td class="p-3 text-ink align-top">Operator approval <strong>Manual</strong>; change the CR to upgrade</td></tr><tr class="border-t border-line" data-glean-id="ocp-diff-row-8"><td class="p-3 text-ink align-top">Air-gapped</td><td class="p-3 text-ink align-top">n/a</td><td class="p-3 text-ink align-top">Mirror the Operator with <span class="font-mono">oc-mirror</span></td></tr></tbody></table></div><div class="my-4 rounded-lg border border-ok bg-ok-soft p-4" data-glean-id="note-ocp-same"><p class="font-semibold text-sm text-ok mb-1">Unchanged on OpenShift</p><div class="text-sm text-ink leading-relaxed">Section 02 (PowerScale, csi-user, SyncIQ both ways), section 03 (design) and all of Part D. <span class="font-mono">kp</span>/<span class="font-mono">ks</span> are plain kubectl against the same kubeconfig files, so the Part D scripts run as is; <span class="font-mono">ocp</span>/<span class="font-mono">ocs</span> are only for oc-specific commands.</div></div><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-ocp-nodes"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm · per cluster (ocp, then ocs)</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+# kubeconfigs from oc login, one file per cluster (same names as the K3s track)
+oc login https://$OCP_PRIMARY_API:6443   --kubeconfig ~/.kube/primary.yaml
+oc login https://$OCP_SECONDARY_API:6443 --kubeconfig ~/.kube/secondary.yaml
+
+# Workers: NFS client present, PowerScale API/NFS/rpcbind reachable (repeat with ocs)
+for N in $(ocp get nodes -l node-role.kubernetes.io/worker -o name); do echo "== $N"
+  ocp debug $N -q -- chroot /host sh -c 'rpm -q nfs-utils; for IP in '"$PS_A_ENDPOINT $PS_B_ENDPOINT"'; do
+    for P in 8080 2049 111; do timeout 3 bash -c "&lt;/dev/tcp/$IP/$P" 2&gt;/dev/null &amp;&amp; echo "$IP:$P ok" || echo "$IP:$P FAIL"; done; done'
+done
+
+# Each cluster must reach the OTHER cluster's API (replication controller traffic)
+curl -sk -o /dev/null -w "secondary API %{http_code}\n" https://$OCP_SECONDARY_API:6443/version   # from the primary side
+curl -sk -o /dev/null -w "primary API %{http_code}\n"   https://$OCP_PRIMARY_API:6443/version     # from the secondary side</code></pre></div></section><section id="ocp-operator" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-ocp-operator">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">O2</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Install the CSM Operator on both clusters</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Use the Red Hat-certified Dell Container Storage Modules Operator.</p><ul class="list-disc pl-5 space-y-1 text-sm text-ink leading-relaxed my-4" data-glean-id="ocp-op-console"><li>OpenShift console → <strong>Operators › OperatorHub</strong> → search <em>Dell Container Storage Modules</em> → the <strong>Certified</strong> tile → Install.</li><li>Channel <span class="font-mono">stable</span>, installation mode <em>All namespaces</em>, namespace <span class="font-mono">openshift-operators</span>.</li><li>Update approval <strong>Manual</strong>: Automatic can move the Operator to a version whose driver is not yet in the support matrix.</li><li>Repeat on the secondary cluster. CLI equivalent below.</li></ul><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-ocp-sub"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm · both clusters</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+for K in ocp ocs; do
+cat &lt;&lt;EOF | $K apply -f -
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: dell-csm-operator-certified
+  namespace: openshift-operators
+spec:
+  channel: stable
+  name: dell-csm-operator-certified
+  source: certified-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Manual
+EOF
+done
+
+# Approve the first InstallPlan on each cluster
+for K in ocp ocs; do
+  IP=$($K get installplan -n openshift-operators -o name | head -1)
+  $K patch $IP -n openshift-operators --type merge -p '{"spec":{"approved":true}}'
+done
+
+# Verify
+for K in ocp ocs; do echo "== $K"
+  $K get csv -n openshift-operators | grep -i dell-csm       # PHASE Succeeded
+  $K get pods -n openshift-operators | grep dell-csm         # controller-manager 2/2 Running
+done</code></pre></div></section><section id="ocp-wire" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-ocp-wire">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">O3</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Register clusters and wire replication</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Dell’s Operator procedure prepares replication with repctl before the driver is installed.</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-ocp-wire"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+# 1. Register both clusters in repctl - IDs must match remoteClusterID in the StorageClasses (O5)
+repctl cluster add -f ~/.kube/primary.yaml,~/.kube/secondary.yaml -n primary,secondary
+repctl cluster get
+
+# 2. Inject the cluster configs so each replication controller can reach the other cluster
+repctl cluster inject
+#    More secure variant (service-account tokens instead of your admin kubeconfig) once the
+#    replication controller exists (after O4):   repctl cluster inject --use-sa</code></pre></div><div class="my-4 rounded-lg border border-warn bg-warn-soft p-4" data-glean-id="note-ocp-inject"><p class="font-semibold text-sm text-warn mb-1">One wiring method only</p><div class="text-sm text-ink leading-relaxed">On OpenShift this guide follows Dell’s Operator procedure (repctl inject). Don’t also apply dellctl-generated replication Secrets — two sets of remote-cluster Secrets conflict.</div></div><div class="mt-10" data-glean-id="h-ocp-dns"><p class="font-mono text-xs uppercase tracking-wider text-dell mb-1">O3a</p><h3 class="text-lg font-semibold text-ink mb-2">Only if the remote API FQDN does not resolve</h3></div><p class="text-sm text-muted leading-relaxed mt-2 max-w-prose" data-glean-id="ocp-dns-p">Add the FQDN → IP mapping to <span class="font-mono">/etc/hosts</span> on the bastion (where repctl runs), to the Operator’s ClusterServiceVersion, and to <strong>both</strong> replication controller deployments. Real DNS is better.</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-ocp-hostalias"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm · example for the primary cluster</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>REMOTE_FQDN=$OCP_SECONDARY_API; REMOTE_IP="&lt;secondary-api-ip&gt;"   # replace with the real IP
+CSV=$(ocp get csv -n openshift-operators -o name | grep dell-csm-operator)
+ocp patch $CSV -n openshift-operators --type=json \
+  -p='[{"op":"add","path":"/spec/install/spec/deployments/0/spec/template/spec/hostAliases","value":[{"ip":"'$REMOTE_IP'","hostnames":["'$REMOTE_FQDN'"]}]}]'
+# after O4, on the replication controller:
+REPL_NS=$(ocp get deploy -A --no-headers | awk '$2=="dell-replication-controller-manager"{print $1}')
+ocp patch deployment -n $REPL_NS dell-replication-controller-manager \
+  -p '{"spec":{"template":{"spec":{"hostAliases":[{"hostnames":["'$REMOTE_FQDN'"],"ip":"'$REMOTE_IP'"}]}}}}'
+# repeat on ocs with the primary FQDN/IP</code></pre></div></section><section id="ocp-driver" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-ocp-driver">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">O4</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Install the PowerScale driver with replication</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Both arrays go in each cluster’s isilon-creds Secret; the local array is the default.</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-ocp-creds"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm · both clusters</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+make_creds() {   # $1 = ocp|ocs   $2 = name of the LOCAL array (isDefault)
+  read -rsp "csi-user password on $PS_A_NAME: " PA; echo
+  read -rsp "csi-user password on $PS_B_NAME: " PB; echo
+  ( umask 077; cat &gt; /tmp/isilon-config.yaml &lt;&lt;EOF
+isilonClusters:
+  - clusterName: "$PS_A_NAME"
+    username: "$PS_USER"
+    password: "$PA"
+    endpoint: "$PS_A_ENDPOINT"
+    endpointPort: "8080"
+    isDefault: $([ "$2" = "$PS_A_NAME" ] &amp;&amp; echo true || echo false)
+    skipCertificateValidation: true      # lab only
+    isiPath: "$ISI_PATH"
+  - clusterName: "$PS_B_NAME"
+    username: "$PS_USER"
+    password: "$PB"
+    endpoint: "$PS_B_ENDPOINT"
+    endpointPort: "8080"
+    isDefault: $([ "$2" = "$PS_B_NAME" ] &amp;&amp; echo true || echo false)
+    skipCertificateValidation: true
+    isiPath: "$ISI_PATH"
+EOF
+  )
+  $1 create ns $CSI_NS --dry-run=client -o yaml | $1 apply -f -
+  $1 -n $CSI_NS create secret generic isilon-creds --from-file=config=/tmp/isilon-config.yaml --dry-run=client -o yaml | $1 apply -f -
+  $1 -n $CSI_NS create secret generic isilon-certs-0 --from-literal=cert-0="" --dry-run=client -o yaml | $1 apply -f -
+  rm -f /tmp/isilon-config.yaml; unset PA PB
+}
+make_creds ocp $PS_A_NAME     # primary cluster: ps1 is local
+make_creds ocs $PS_B_NAME     # secondary cluster: ps2 is local</code></pre></div><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-ocp-csm"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm · ContainerStorageModule (both clusters)</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+for K in ocp ocs; do
+cat &lt;&lt;EOF | $K apply -f -
+apiVersion: storage.dell.com/v1
+kind: ContainerStorageModule
+metadata:
+  name: isilon
+  namespace: ${CSI_NS}
+spec:
+  version: ${CSM_VERSION}                 # CSM 1.16+: Operator picks matching images
+  driver:
+    csiDriverType: "isilon"
+    authSecret: isilon-creds
+    replicas: 2                           # controller pods; &lt;= number of workers
+    dnsPolicy: ClusterFirstWithHostNet
+    forceRemoveDriver: true
+    common:
+      envs:
+        - name: X_CSI_ISI_AUTH_TYPE       # 1 = session login (Basic auth is off on OneFS)
+          value: "1"
+        - name: X_CSI_ISI_PATH
+          value: "${ISI_PATH}"
+  modules:
+    - name: replication
+      enabled: true
+      components:
+        - name: dell-replication-controller-manager
+          envs:
+            - name: "REPLICATION_ALLOW_PVC_CREATION_ON_TARGET"
+              value: "false"              # "true" = option A in section 03c
+EOF
+done
+
+for K in ocp ocs; do echo "== $K"
+  $K get csm isilon -n $CSI_NS            # STATE Succeeded
+  $K get pods -n $CSI_NS
+  $K get deploy -A | grep dell-replication-controller-manager
+done</code></pre></div><div class="my-4 rounded-lg border border-warn bg-warn-soft p-4" data-glean-id="note-ocp-cr"><p class="font-semibold text-sm text-warn mb-1">Minimal custom resource</p><div class="text-sm text-ink leading-relaxed">This shows only the fields this guide relies on. Start from Dell’s PowerScale sample CR for your CSM version (or a dellctl-generated CR) and carry these values into it; other fields keep their defaults. <span class="pill warn">verify</span></div></div></section><section id="ocp-sc" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-ocp-sc">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">O5</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Create the replication StorageClass pair</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Mirrored classes: each points at the other cluster and array, with its own volumeGroupPrefix.</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-ocp-sc"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm · StorageClass pair</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+make_sc() {  # $1=ocp|ocs $2=local array $3=remote array $4=local IP $5=remote IP $6=remote cluster ID $7=prefix
+cat &lt;&lt;EOF | $1 apply -f -
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: isilon-replication                # same name on both clusters = simple pairing
+provisioner: csi-isilon.dellemc.com
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+volumeBindingMode: Immediate
+parameters:
+  replication.storage.dell.com/isReplicationEnabled: "true"
+  replication.storage.dell.com/remoteStorageClassName: "isilon-replication"
+  replication.storage.dell.com/remoteClusterID: "$6"
+  replication.storage.dell.com/remoteSystem: "$3"
+  replication.storage.dell.com/remoteAccessZone: System
+  replication.storage.dell.com/remoteAzServiceIP: "$5"
+  replication.storage.dell.com/remoteRootClientEnabled: "false"
+  replication.storage.dell.com/rpo: ${RPO}
+  replication.storage.dell.com/ignoreNamespaces: "false"
+  replication.storage.dell.com/volumeGroupPrefix: "$7"
+  replication.storage.dell.com/remotePVRetentionPolicy: "Retain"    # section 03d
+  replication.storage.dell.com/remoteRGRetentionPolicy: "Retain"
+  AccessZone: System
+  AzServiceIP: "$4"
+  IsiPath: ${ISI_PATH}
+  RootClientEnabled: "false"
+  ClusterName: "$2"
+EOF
+}
+make_sc ocp $PS_A_NAME $PS_B_NAME $PS_A_ENDPOINT $PS_B_ENDPOINT secondary $VG_PREFIX_PRI
+make_sc ocs $PS_B_NAME $PS_A_NAME $PS_B_ENDPOINT $PS_A_ENDPOINT primary   $VG_PREFIX_SEC</code></pre></div><p class="text-sm text-muted leading-relaxed mt-2 max-w-prose" data-glean-id="ocp-sc-note"><span class="font-mono">remoteSystem</span> and <span class="font-mono">ClusterName</span> must match the <span class="font-mono">clusterName</span> values in isilon-creds. Retention parameter names: <span class="pill warn">verify</span></p></section><section id="ocp-verify" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-ocp-verify">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">O6</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Verify the OpenShift installation</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Operator, CRDs, StorageClasses and controller logs on both clusters.</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-ocp-verify"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+for K in ocp ocs; do echo "== $K"
+  $K get csm -n $CSI_NS
+  $K get crd | grep -c replication.storage.dell.com      # replication CRDs present
+  $K get sc isilon-replication -o jsonpath='{.parameters.replication\.storage\.dell\.com/volumeGroupPrefix}{"\n"}'
+done
+export REPL_NS=$(kp get deploy -A --no-headers | awk '$2=="dell-replication-controller-manager"{print $1}')
+grep -q '^export REPL_NS=' ~/csm-env.sh || echo "export REPL_NS=$REPL_NS" &gt;&gt; ~/csm-env.sh
+kp logs -n $REPL_NS deploy/dell-replication-controller-manager --tail=50   # no connection/auth errors
+repctl cluster get</code></pre></div><p class="text-sm text-muted leading-relaxed mt-2 max-w-prose" data-glean-id="ocp-verify-next">Then run the functional test in <a class="text-dell" href="file:///Users/fjacquet/Library/CloudStorage/OneDrive-Home/powerscale-csm-replication-k3s-openshift_v5.html#dr-onboard">D1</a> — it creates replicated volumes in several namespaces and works the same on OpenShift (the busybox writer runs under the restricted SCC).</p></section><div class="part-band" data-glean-id="part-d"><div class="k">Both platforms · new in v5</div><div class="t">Part D · Multi-namespace DR runbook</div><div class="s">Same commands on K3s and OpenShift.</div></div><section id="dr-onboard" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-dr-onboard">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">D1</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Protect several namespaces and map them to RGs</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Three test namespaces, each with an RWX volume and a writer that appends a timestamp every 30 s.</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-dr-onboard"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm · protect several namespaces</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+SC=$(kp get sc -o name | grep -i replication | head -1 | cut -d/ -f2); echo "replication class: $SC"
+for NS in $APP_NAMESPACES; do
+  for K in kp ks; do $K create ns $NS --dry-run=client -o yaml | $K apply -f -; done   # namespace on BOTH sides
+  cat &lt;&lt;EOF | kp apply -n $NS -f -
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: data }
+spec:
+  accessModes: [ReadWriteMany]
+  resources: { requests: { storage: 5Gi } }
+  storageClassName: ${SC}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: writer }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: writer } }
+  template:
+    metadata: { labels: { app: writer } }
+    spec:
+      containers:
+      - name: app
+        image: busybox:1.36
+        command: ["sh","-c","while true; do date -u +%FT%TZ &gt;&gt; /data/${NS}.log; sleep 30; done"]
+        volumeMounts: [{ name: d, mountPath: /data }]
+      volumes: [{ name: d, persistentVolumeClaim: { claimName: data } }]
+EOF
+done
+for NS in $APP_NAMESPACES; do kp -n $NS get pvc,pod; done</code></pre></div><div class="mt-10" data-glean-id="h-dr-map"><p class="font-mono text-xs uppercase tracking-wider text-dell mb-1">D1a</p><h3 class="text-lg font-semibold text-ink mb-2">Build the namespace → RG map (keep it off the primary site)</h3></div><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-dr-map"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+: &gt; $DR_DIR/rg-map.txt
+for NS in $APP_NAMESPACES; do
+  for RG in $(rg_for_ns kp $NS); do echo "$NS $RG" &gt;&gt; $DR_DIR/rg-map.txt; done
+done
+cat $DR_DIR/rg-map.txt          # expect one line per namespace
+repctl get rg                   # each RG listed on primary (source) and secondary
+ks get pv -o custom-columns=PV:.metadata.name,STATUS:.status.phase,CLAIM:.spec.claimRef.name   # replica PVs, claim "reserved" (option B)</code></pre></div><div class="my-4 rounded-lg border border-warn bg-warn-soft p-4" data-glean-id="note-dr-map"><p class="font-semibold text-sm text-warn mb-1">If rg-map.txt is empty</p><div class="text-sm text-ink leading-relaxed">The helper reads the PVC annotation <span class="font-mono">replication.storage.dell.com/replicationGroupName</span>. Run <span class="font-mono">kp get pvc data -n app-a -o yaml | grep replication.storage</span> and adjust <span class="font-mono">rg_for_ns</span> in <span class="font-mono">~/csm-env.sh</span> if your version uses a different key. <span class="pill warn">verify</span> Re-run D1a whenever you add a namespace, and copy the file to the failover site: during an unplanned failover the primary API is gone.</div></div><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-dr-onefs"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">onefs cli · ps1</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>isi sync policies list          # one csi-pri-&lt;namespace&gt;-192.168.1.200-Five_Minutes policy per namespace
+isi sync reports list | head    # recent jobs finished</code></pre></div></section><section id="dr-target" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-dr-target">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">D2</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Prepare the failover cluster</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">CSM moves volumes. Everything else must already be waiting on the failover cluster.</p><div class="overflow-x-auto rounded-lg border border-line my-4" data-glean-id="dr-what"><table class="w-full text-sm"><thead class="bg-dell-soft"><tr><th class="text-left p-3 font-semibold text-ink">Object</th><th class="text-left p-3 font-semibold text-ink">Replicated by CSM?</th><th class="text-left p-3 font-semibold text-ink">How it gets to the failover cluster</th></tr></thead><tbody class="bg-card"><tr class="border-t border-line" data-glean-id="dr-what-row-0"><td class="p-3 text-ink align-top">Volume data</td><td class="p-3 text-ink align-top">Yes — SyncIQ, per RG, within the RPO</td><td class="p-3 text-ink align-top">Automatic</td></tr><tr class="border-t border-line" data-glean-id="dr-what-row-1"><td class="p-3 text-ink align-top">PV and DellCSIReplicationGroup objects</td><td class="p-3 text-ink align-top">Yes</td><td class="p-3 text-ink align-top">Automatic (replica PV reserved by claimRef)</td></tr><tr class="border-t border-line" data-glean-id="dr-what-row-2"><td class="p-3 text-ink align-top">PVCs</td><td class="p-3 text-ink align-top">Option A only</td><td class="p-3 text-ink align-top">Option A: automatic. Option B: <span class="font-mono">repctl create pvc</span> at failover</td></tr><tr class="border-t border-line" data-glean-id="dr-what-row-3"><td class="p-3 text-ink align-top">Namespaces</td><td class="p-3 text-ink align-top">No</td><td class="p-3 text-ink align-top">Create beforehand (D1 does it)</td></tr><tr class="border-t border-line" data-glean-id="dr-what-row-4"><td class="p-3 text-ink align-top">Deployments, StatefulSets, Services, ConfigMaps, Secrets</td><td class="p-3 text-ink align-top">No</td><td class="p-3 text-ink align-top">GitOps: Argo CD/Flux on K3s; OpenShift GitOps or ACM on OpenShift — deployed with 0 replicas</td></tr><tr class="border-t border-line" data-glean-id="dr-what-row-5"><td class="p-3 text-ink align-top">Ingress / Routes, DNS, certificates</td><td class="p-3 text-ink align-top">No</td><td class="p-3 text-ink align-top">Part of the runbook’s traffic switch</td></tr></tbody></table></div><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-dr-standby"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm · lab shortcut (production: GitOps)</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+# Copy the Deployments to the failover cluster with 0 replicas
+for NS in $APP_NAMESPACES; do
+  kp -n $NS get deploy -o yaml \
+  | yq '.items[] |= (del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp,
+                         .metadata.generation, .metadata.managedFields, .metadata.annotations, .status)
+                     | .spec.replicas = 0)' \
+  | ks -n $NS apply -f -
+done
+for NS in $APP_NAMESPACES; do ks -n $NS get deploy; done   # READY 0/0</code></pre></div><ul class="list-disc pl-5 space-y-1 text-sm text-ink leading-relaxed my-4" data-glean-id="dr-target-list"><li><strong>Don’t include PVC objects</strong> in the standby manifests (option B creates them from the replica PVs; option A already has them).</li><li><strong>Pause primary-side GitOps during a failover</strong>, or it will scale the apps back up on primary and write to the old source.</li><li>Document the traffic switch per namespace: which DNS record, Ingress or Route moves, and who changes it.</li></ul></section><section id="dr-planned" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-dr-planned">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">D3</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Planned failover of all namespaces</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Maintenance or a DR exercise: no data loss, because writers stop and repctl runs a final sync.</p><ul class="list-disc pl-5 space-y-1 text-sm text-ink leading-relaxed my-4" data-glean-id="dr-pre"><li><span class="font-mono">repctl get rg</span>: every RG healthy, no errors; recent SyncIQ jobs finished on ps1.</li><li><span class="font-mono">$DR_DIR/rg-map.txt</span> is current (D1a).</li><li>Standby apps exist on secondary at 0 replicas (D2); primary GitOps paused.</li><li>Record the last write per namespace for the data check (D6).</li></ul><div class="mt-10" data-glean-id="h-dr-p1"><p class="font-mono text-xs uppercase tracking-wider text-dell mb-1">D3a</p><h3 class="text-lg font-semibold text-ink mb-2">Stop writers and fail over each namespace</h3></div><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-dr-planned"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm · planned failover to secondary</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+LOG=$DR_DIR/failover-$(date +%F-%H%M).log
+for NS in $APP_NAMESPACES; do echo "=== $NS" | tee -a $LOG
+  # 1. Stop writers on primary - PowerScale failover does NOT block writes on the source
+  kp -n $NS scale deploy,statefulset --all --replicas=0
+  kp -n $NS wait --for=delete pod --all --timeout=300s
+  kp -n $NS get pods 2&gt;&amp;1 | tee -a $LOG                           # expect: No resources found
+  # 2. Fail over every RG of this namespace: final sync, disable the ps1 policy, allow writes on ps2
+  for RG in $(awk -v n=$NS '$1==n{print $2}' $DR_DIR/rg-map.txt); do
+    repctl --rg $RG failover --target secondary --wait 2&gt;&amp;1 | tee -a $LOG
+  done
+done
+repctl get rg | tee -a $LOG        # LinkState FAILEDOVER for each RG</code></pre></div><p class="text-sm text-muted leading-relaxed mt-2 max-w-prose" data-glean-id="dr-p-one">To move a single application, run the same block with <span class="font-mono">APP_NAMESPACES="app-b"</span>.</p><div class="mt-10" data-glean-id="h-dr-p2"><p class="font-mono text-xs uppercase tracking-wider text-dell mb-1">D3b</p><h3 class="text-lg font-semibold text-ink mb-2">Bring the applications up on secondary</h3></div><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-dr-up"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+for NS in $APP_NAMESPACES; do echo "=== $NS"
+  for RG in $(awk -v n=$NS '$1==n{print $2}' $DR_DIR/rg-map.txt); do
+    # Option B: recreate the PVCs from the replica PVs - dry run first, then for real (skip with option A)
+    repctl create pvc --rg $RG -t $NS --clusters secondary
+    repctl create pvc --rg $RG -t $NS --clusters secondary --dry-run=false
+  done
+  ks -n $NS get pvc                                   # Bound
+  ks -n $NS scale deploy --all --replicas=1           # production: let GitOps scale up
+done
+# then switch traffic (DNS / Ingress / Route) per namespace</code></pre></div><div class="mt-10" data-glean-id="h-dr-p3"><p class="font-mono text-xs uppercase tracking-wider text-dell mb-1">D3c</p><h3 class="text-lg font-semibold text-ink mb-2">Reprotect: replicate back from secondary to primary</h3></div><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-dr-reprotect"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+for RG in $(awk '{print $2}' $DR_DIR/rg-map.txt | sort -u); do
+  repctl --rg $RG reprotect --at secondary --wait
+done
+repctl get rg                  # secondary is now the source of each RG</code></pre></div><div class="my-4 rounded-lg border border-dell bg-dell-soft p-4" data-glean-id="note-dr-reprotect"><p class="font-semibold text-sm text-dell mb-1">What reprotect does on PowerScale</p><div class="text-sm text-ink leading-relaxed">It deletes the CSM SyncIQ policy on ps1 and creates the reverse policy on ps2, so ps2 → ps1 replication protects the writes now happening on secondary. Until you reprotect (or fail back), changes on secondary are not replicated anywhere.</div></div></section><section id="dr-unplanned" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-dr-unplanned">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">D4</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Unplanned failover</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Primary cluster or array lost. Run from the failover side; data since the last SyncIQ job (up to the RPO) may be lost.</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-dr-unplanned"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm · primary site down</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh            # use the rg-map.txt copy kept off the primary site
+LOG=$DR_DIR/unplanned-$(date +%F-%H%M).log
+for RG in $(awk '{print $2}' $DR_DIR/rg-map.txt | sort -u); do
+  repctl --rg $RG failover --target secondary --unplanned 2&gt;&amp;1 | tee -a $LOG
+done
+repctl get rg | tee -a $LOG    # errors reaching primary are expected; secondary RGs FAILEDOVER
+# then D3b: create PVCs (option B), scale up, switch traffic</code></pre></div><div class="mt-10" data-glean-id="h-dr-return"><p class="font-mono text-xs uppercase tracking-wider text-dell mb-1">D4a</p><h3 class="text-lg font-semibold text-ink mb-2">When the primary site comes back</h3></div><ul class="list-disc pl-5 space-y-1 text-sm text-ink leading-relaxed my-4" data-glean-id="dr-return"><li><strong>Keep primary apps at 0 before anything else.</strong> Pause primary GitOps, then <span class="font-mono">kp -n &lt;ns&gt; scale deploy,statefulset --all --replicas=0</span> for every protected namespace.</li><li><strong>Disable the CSM SyncIQ policies on ps1 manually.</strong> After an unplanned failover they are still enabled; Dell requires disabling them before reprotect or failback.</li><li>Then choose: stay on secondary (D3c reprotect) or go home (D5).</li></ul><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-dr-disable"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">onefs cli · ps1</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>isi sync policies list | grep csi-pri
+isi sync policies modify &lt;policy-name&gt; --enabled false     # each CSM policy listed above
+isi sync policies list | grep csi-pri                     # Enabled: No</code></pre></div></section><section id="dr-failback" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-dr-failback">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">D5</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Fail back to primary</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Pick the path from where you are now: failed over only, or already reprotected.</p><div class="overflow-x-auto rounded-lg border border-line my-4" data-glean-id="dr-failback"><table class="w-full text-sm"><thead class="bg-dell-soft"><tr><th class="text-left p-3 font-semibold text-ink">Situation</th><th class="text-left p-3 font-semibold text-ink">Command (per RG)</th><th class="text-left p-3 font-semibold text-ink">Effect on PowerScale</th></tr></thead><tbody class="bg-card"><tr class="border-t border-line" data-glean-id="dr-failback-row-0"><td class="p-3 text-ink align-top">Failed over, <strong>not</strong> reprotected — keep writes made on secondary</td><td class="p-3 text-ink align-top"><span class="font-mono">repctl --rg &lt;rg&gt; failback --target primary</span></td><td class="p-3 text-ink align-top">Resync-prep, temporary <span class="font-mono">_mirror</span> policy syncs ps2 → ps1, writes allowed on ps1, <span class="font-mono">_mirror</span> deleted</td></tr><tr class="border-t border-line" data-glean-id="dr-failback-row-1"><td class="p-3 text-ink align-top">Failed over, <strong>not</strong> reprotected — discard writes made on secondary</td><td class="p-3 text-ink align-top"><span class="font-mono">repctl --rg &lt;rg&gt; failback --target primary --discard</span></td><td class="p-3 text-ink align-top">Writes disallowed on ps2, original ps1 policy re-enabled</td></tr><tr class="border-t border-line" data-glean-id="dr-failback-row-2"><td class="p-3 text-ink align-top">Already reprotected at secondary</td><td class="p-3 text-ink align-top">Planned failover back: D3 with roles swapped (<span class="font-mono">--target primary</span>, reprotect <span class="font-mono">--at primary</span>)</td><td class="p-3 text-ink align-top">Same as D3, reverse direction</td></tr></tbody></table></div><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-dr-failback"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm · failback to primary (keep secondary writes)</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+# 1. Stop writers on secondary
+for NS in $APP_NAMESPACES; do
+  ks -n $NS scale deploy,statefulset --all --replicas=0
+  ks -n $NS wait --for=delete pod --all --timeout=300s
+done
+# 2. Fail back every RG (add --discard to throw away the secondary writes)
+for RG in $(awk '{print $2}' $DR_DIR/rg-map.txt | sort -u); do
+  repctl --rg $RG failback --target primary --wait
+done
+repctl get rg
+# 3. Original PVCs on primary are still there: check Bound, then scale up and switch traffic back
+for NS in $APP_NAMESPACES; do kp -n $NS get pvc; kp -n $NS scale deploy --all --replicas=1; done</code></pre></div><div class="my-4 rounded-lg border border-dell bg-dell-soft p-4" data-glean-id="note-dr-crash"><p class="font-semibold text-sm text-dell mb-1">Pods in CrashLoopBackOff after failover or failback</p><div class="text-sm text-ink leading-relaxed">Dell documents this when a pod tries to mount a volume that is still mounted: scale the workload to 0, wait for the pods to go away, then scale back to 1.</div></div></section><section id="dr-test" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-dr-test">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">D6</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">DR test and acceptance checklist</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Prove the runbook with data checks, and time it.</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-dr-check"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm · data check</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh
+# Before failover (primary): last write per namespace
+for NS in $APP_NAMESPACES; do kp -n $NS exec deploy/writer -- tail -n1 /data/$NS.log &gt; $DR_DIR/last-$NS.txt; done
+# After failover (secondary): that line must be in the replicated log (planned = zero loss)
+for NS in $APP_NAMESPACES; do
+  ks -n $NS exec deploy/writer -- grep -qF "$(cat $DR_DIR/last-$NS.txt)" /data/$NS.log \
+    &amp;&amp; echo "$NS: last primary write present" || echo "$NS: MISSING - check final sync / RPO"
+  ks -n $NS exec deploy/writer -- tail -n2 /data/$NS.log     # new entries written on secondary
+done</code></pre></div><div class="overflow-x-auto rounded-lg border border-line my-4" data-glean-id="dr-checklist"><table class="w-full text-sm"><thead class="bg-dell-soft"><tr><th class="text-left p-3 font-semibold text-ink">#</th><th class="text-left p-3 font-semibold text-ink">Test</th><th class="text-left p-3 font-semibold text-ink">Pass when</th></tr></thead><tbody class="bg-card"><tr class="border-t border-line" data-glean-id="dr-check-row-0"><td class="p-3 text-ink align-top">1</td><td class="p-3 text-ink align-top">SyncIQ both directions (02)</td><td class="p-3 text-ink align-top">Test file arrives PS1 → PS2 and PS2 → PS1</td></tr><tr class="border-t border-line" data-glean-id="dr-check-row-1"><td class="p-3 text-ink align-top">2</td><td class="p-3 text-ink align-top">One-namespace move (D3 with one namespace)</td><td class="p-3 text-ink align-top">Only that RG FAILEDOVER; other apps untouched on primary</td></tr><tr class="border-t border-line" data-glean-id="dr-check-row-2"><td class="p-3 text-ink align-top">3</td><td class="p-3 text-ink align-top">Planned site failover (D3)</td><td class="p-3 text-ink align-top">All RGs FAILEDOVER, last primary write present, apps serve traffic on secondary</td></tr><tr class="border-t border-line" data-glean-id="dr-check-row-3"><td class="p-3 text-ink align-top">4</td><td class="p-3 text-ink align-top">Reprotect (D3c)</td><td class="p-3 text-ink align-top">ps2 → ps1 policies exist; new writes reach ps1</td></tr><tr class="border-t border-line" data-glean-id="dr-check-row-4"><td class="p-3 text-ink align-top">5</td><td class="p-3 text-ink align-top">Failback keep / discard (D5)</td><td class="p-3 text-ink align-top">Data on primary matches the chosen option</td></tr><tr class="border-t border-line" data-glean-id="dr-check-row-5"><td class="p-3 text-ink align-top">6</td><td class="p-3 text-ink align-top">Unplanned failover (D4) in a maintenance window</td><td class="p-3 text-ink align-top">Recovery inside the RPO; ps1 policies disabled before reprotect</td></tr><tr class="border-t border-line" data-glean-id="dr-check-row-6"><td class="p-3 text-ink align-top">7</td><td class="p-3 text-ink align-top">Timing</td><td class="p-3 text-ink align-top">Measured RTO per namespace written into the runbook</td></tr></tbody></table></div></section><div class="part-band" data-glean-id="part-e"><div class="k">Both platforms</div><div class="t">Part E · Operate</div></div><section id="reuse" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-reuse">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">E1</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Reuse, customize, and operate</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">The values files are now your deployment source of truth. Change them and roll them out with Helm; Helm keeps the revision history.</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-reuse"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>source ~/csm-env.sh &amp;&amp; cd $PS1_DIR      # secondary: cd $PS2_DIR, use hs and secondary-rendered.yaml
+# Change a setting in your custom copy, then roll it out
+vi $CUSTOM_VALUES
+hp diff upgrade isilon dell/container-storage-modules -n $CSI_NS --version $CHART_VERSION -f $CUSTOM_VALUES 2&gt;/dev/null \
+  || helm template isilon dell/container-storage-modules -n $CSI_NS --version $CHART_VERSION -f $CUSTOM_VALUES | diff primary-rendered.yaml -
+hp upgrade isilon dell/container-storage-modules -n $CSI_NS --version $CHART_VERSION -f $CUSTOM_VALUES --wait
+
+# Roll back a bad change
+hp history isilon -n $CSI_NS
+hp rollback isilon &lt;REVISION&gt; -n $CSI_NS
+
+# After ANY helm upgrade: the chart can reset the controller ConfigMap
+kp apply -f $PS1_DIR/06_replication.yaml &amp;&amp; kp -n $REPL_NS rollout restart deploy/dell-replication-controller-manager
+
+# Replication actions (failover, reprotect, failback) -&gt; Part D runbooks D3-D5</code></pre></div><div class="my-4 rounded-lg border border-dell bg-dell-soft p-4" data-glean-id="note-reuse"><p class="font-semibold text-sm text-dell mb-1">Reuse for another environment</p><div class="text-sm text-ink leading-relaxed">Copy the two dellctl configs, change the IPs and array names, rerun step K4 to regenerate values, and diff them against your <span class="font-mono">custom-*</span> files. <span class="font-mono">helm diff</span> is an optional plugin; the template-and-diff fallback works without it. Snapshots of SyncIQ-replicated volumes aren’t supported by the CSI PowerScale driver.</div></div></section><section id="troubleshoot" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-troubleshoot">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">E2</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Troubleshooting</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Generation issues show up in <span class="font-mono">dellctl.log</span>; install issues show up in Helm and pod events.</p><div class="overflow-x-auto rounded-lg border border-line my-4" data-glean-id="trouble-table"><table class="w-full text-sm"><thead class="bg-dell-soft"><tr><th class="text-left p-3 font-semibold text-ink">Symptom</th><th class="text-left p-3 font-semibold text-ink">Likely cause</th><th class="text-left p-3 font-semibold text-ink">Fix</th></tr></thead><tbody><tr class="border-t border-line" data-glean-id="trouble-0"><td class="p-3 font-mono text-xs text-ink align-top">helm is not installed or not in PATH</td><td class="p-3 text-ink align-top">dellctl checks for Helm even in output mode</td><td class="p-3 text-ink align-top">Install Helm (step K2); this guide uses Helm 4.3.</td></tr><tr class="border-t border-line" data-glean-id="trouble-1"><td class="p-3 font-mono text-xs text-ink align-top">No *-values-override.yaml written</td><td class="p-3 text-ink align-top"><span class="font-mono">output</span> or <span class="font-mono">helm-install</span> missing from the file, or extra CLI flags</td><td class="p-3 text-ink align-top">Keep all options inside the config file; run only <span class="font-mono">--from-file</span>.</td></tr><tr class="border-t border-line" data-glean-id="trouble-2"><td class="p-3 font-mono text-xs text-ink align-top">Driver pods CrashLoop: secret not found</td><td class="p-3 text-ink align-top"><span class="font-mono">isilon-creds</span>/<span class="font-mono">isilon-certs-0</span> missing, or release/namespace isn’t <span class="font-mono">isilon</span></td><td class="p-3 text-ink align-top">Re-apply <span class="font-mono">03_driver-secrets.yaml</span> from that cluster’s folder (step 07c).</td></tr><tr class="border-t border-line" data-glean-id="trouble-3"><td class="p-3 font-mono text-xs text-ink align-top">Second controller pod Pending</td><td class="p-3 text-ink align-top"><span class="font-mono">controllerCount: 2</span> on one node</td><td class="p-3 text-ink align-top">Set it to 1 and run <span class="font-mono">helm upgrade</span>.</td></tr><tr class="border-t border-line" data-glean-id="trouble-4"><td class="p-3 font-mono text-xs text-ink align-top">Pod stuck ContainerCreating</td><td class="p-3 text-ink align-top">No NFS client, or NFS IPs unreachable</td><td class="p-3 text-ink align-top">Install <span class="font-mono">nfs-common</span>; check SmartConnect reachability and export rules.</td></tr><tr class="border-t border-line" data-glean-id="trouble-5"><td class="p-3 font-mono text-xs text-ink align-top">Replication ConfigMap has no targets</td><td class="p-3 text-ink align-top"><span class="font-mono">06_replication.yaml</span> not applied, or a later <span class="font-mono">helm upgrade</span> reset the ConfigMap</td><td class="p-3 text-ink align-top">Re-apply <span class="font-mono">06_replication.yaml</span> and restart <span class="font-mono">dell-replication-controller-manager</span> (step K6, part 2), then re-check step K7.</td></tr><tr class="border-t border-line" data-glean-id="trouble-6"><td class="p-3 font-mono text-xs text-ink align-top">No ReplicationGroup on secondary</td><td class="p-3 text-ink align-top">Controller can’t reach the remote API</td><td class="p-3 text-ink align-top">Allow TCP 6443 between 192.168.1.105 and 192.168.1.107.</td></tr><tr class="border-t border-line" data-glean-id="trouble-7"><td class="p-3 font-mono text-xs text-ink align-top">No SyncIQ policy on OneFS</td><td class="p-3 text-ink align-top">SyncIQ disabled/unlicensed or arrays can’t reach each other</td><td class="p-3 text-ink align-top">Recheck step 02 (both directions); check the driver logs.</td></tr><tr class="border-t border-line" data-glean-id="trouble-v5-repctl"><td class="p-3 font-mono text-xs text-ink align-top">repctl lists no clusters / RG not found</td><td class="p-3 text-ink align-top">Clusters never added to repctl</td><td class="p-3 text-ink align-top"><span class="font-mono">repctl cluster add</span> (K2 / O3).</td></tr><tr class="border-t border-line" data-glean-id="trouble-v5-prefix"><td class="p-3 font-mono text-xs text-ink align-top">Action on one cluster’s RG changes the other</td><td class="p-3 text-ink align-top">Same volumeGroupPrefix on both clusters</td><td class="p-3 text-ink align-top">Distinct prefixes (K3 / O5); recreate StorageClasses, re-provision.</td></tr><tr class="border-t border-line" data-glean-id="trouble-v5-63"><td class="p-3 font-mono text-xs text-ink align-top">Replicated PVC fails to provision</td><td class="p-3 text-ink align-top">Volume group name over 63 characters</td><td class="p-3 text-ink align-top">Shorten namespace or prefix; run the length check in 03.</td></tr><tr class="border-t border-line" data-glean-id="trouble-v5-nopvc"><td class="p-3 font-mono text-xs text-ink align-top">After failover, no PVC on the failover cluster</td><td class="p-3 text-ink align-top">PVC creation on target is off (default); PV is reserved</td><td class="p-3 text-ink align-top"><span class="font-mono">repctl create pvc --rg … -t &lt;ns&gt; --dry-run=false</span> (D3).</td></tr><tr class="border-t border-line" data-glean-id="trouble-v5-crash"><td class="p-3 font-mono text-xs text-ink align-top">Pods CrashLoopBackOff after failover or failback</td><td class="p-3 text-ink align-top">Volume still mounted by a previous pod</td><td class="p-3 text-ink align-top">Scale the workload to 0, wait, then back to 1.</td></tr><tr class="border-t border-line" data-glean-id="trouble-v5-unpl"><td class="p-3 font-mono text-xs text-ink align-top">Reprotect/failback misbehaves after unplanned failover</td><td class="p-3 text-ink align-top">Old SyncIQ policy on PS1 still enabled</td><td class="p-3 text-ink align-top">Disable the CSM policies on PS1 first (D4).</td></tr><tr class="border-t border-line" data-glean-id="trouble-v5-fqdn"><td class="p-3 font-mono text-xs text-ink align-top">OpenShift: controller can’t reach the remote API</td><td class="p-3 text-ink align-top">Remote API FQDN not resolvable from pods</td><td class="p-3 text-ink align-top">Fix DNS, or add hostAliases (O3).</td></tr><tr class="border-t border-line" data-glean-id="trouble-v5-csm"><td class="p-3 font-mono text-xs text-ink align-top">OpenShift: ContainerStorageModule not Succeeded</td><td class="p-3 text-ink align-top">Secret missing, wrong version, operator error</td><td class="p-3 text-ink align-top"><span class="font-mono">oc describe csm isilon -n isilon</span>; operator pod logs.</td></tr></tbody></table></div><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-diag"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">diagnostics</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code>grep "=== STEP" $PS1_DIR/dellctl.log $PS2_DIR/dellctl.log
+hp status isilon -n $CSI_NS
+kp get events -n $CSI_NS --sort-by=.lastTimestamp | tail -30
+kp logs -n $CSI_NS deploy/isilon-controller -c driver --tail=200
+kp logs -n $REPL_NS deploy/dell-replication-controller-manager --tail=200
+KUBECONFIG=~/.kube/primary.yaml dellctl logs collect --help     # CSM 1.18 support bundle
+repctl get rg                                                     # LinkState per RG, both clusters</code></pre></div></section><section id="cleanup" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-cleanup">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">E3</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">Clean up</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Remove the test workload. To remove the driver entirely, uninstall the Helm releases.</p><div class="code-card my-4 rounded-lg overflow-hidden bg-code border border-code-line" data-glean-id="code-cleanup"><div class="flex items-center justify-between px-4 py-2 border-b border-code-line"><span class="font-mono text-xs uppercase tracking-wider text-code-muted">management vm</span><button type="button" class="copy-btn font-mono text-xs px-2 py-1 rounded border border-code-line text-code-muted hover:text-code-ink" aria-label="Copy code">Copy</button></div><pre class="overflow-x-auto p-4 text-sm leading-relaxed text-code-ink font-mono"><code># Smoke test (K9)
+kp delete namespace rep-test
+
+# DR test namespaces (Part D) - on BOTH clusters
+for NS in $APP_NAMESPACES; do kp delete ns $NS --wait=false; ks delete ns $NS --wait=false; done
+kp get rg; ks get rg            # RGs disappear unless retention policy is Retain - then delete them explicitly
+# PS1 / PS2 (OneFS): isi sync policies list ; remove leftover csi-pri-* / csi-sec-* policies only if no RG uses them
+
+# Full removal (optional)
+hp uninstall isilon -n $CSI_NS              # K3s
+hs uninstall isilon -n $CSI_NS
+# ocp delete csm isilon -n $CSI_NS          # OpenShift (forceRemoveDriver: true removes the driver)
+# ocs delete csm isilon -n $CSI_NS</code></pre></div></section><section id="changelog" class="scroll-mt-6 py-10 border-t border-line" data-glean-id="section-changelog">
+<div class="flex items-baseline gap-4 mb-2"><span class="font-mono text-sm font-semibold text-dell">E4</span><h2 class="text-2xl md:text-3xl font-semibold text-ink tracking-tight">What changed in v5, and sources</h2></div>
+<p class="text-base text-muted leading-relaxed mb-4 max-w-prose">Fixes to v4 and the new content, with the Dell documents behind them.</p><div class="overflow-x-auto rounded-lg border border-line my-4" data-glean-id="changelog"><table class="w-full text-sm"><thead class="bg-dell-soft"><tr><th class="text-left p-3 font-semibold text-ink">Area</th><th class="text-left p-3 font-semibold text-ink">v4</th><th class="text-left p-3 font-semibold text-ink">v5</th></tr></thead><tbody class="bg-card"><tr class="border-t border-line" data-glean-id="changelog-row-0"><td class="p-3 text-ink align-top">Scope</td><td class="p-3 text-ink align-top">K3s install + one test PVC</td><td class="p-3 text-ink align-top">Shared foundation + K3s and OpenShift tracks + multi-namespace DR runbook</td></tr><tr class="border-t border-line" data-glean-id="changelog-row-1"><td class="p-3 text-ink align-top">volumeGroupPrefix</td><td class="p-3 text-ink align-top"><span class="font-mono">csi</span> on both clusters</td><td class="p-3 text-ink align-top"><span class="font-mono">csi-pri</span> / <span class="font-mono">csi-sec</span> (K3, O5)</td></tr><tr class="border-t border-line" data-glean-id="changelog-row-2"><td class="p-3 text-ink align-top">repctl</td><td class="p-3 text-ink align-top">Used, never registered</td><td class="p-3 text-ink align-top"><span class="font-mono">repctl cluster add</span> (K2, O3)</td></tr><tr class="border-t border-line" data-glean-id="changelog-row-3"><td class="p-3 text-ink align-top">Manifest split</td><td class="p-3 text-ink align-top">03/06 by namespace, contradicting K6/K7</td><td class="p-3 text-ink align-top">By object name, namespace displayed (K5b)</td></tr><tr class="border-t border-line" data-glean-id="changelog-row-4"><td class="p-3 text-ink align-top">Replication namespace</td><td class="p-3 text-ink align-top">Assumed <span class="font-mono">isilon</span></td><td class="p-3 text-ink align-top">Detected into <span class="font-mono">REPL_NS</span> (K6, O6)</td></tr><tr class="border-t border-line" data-glean-id="changelog-row-5"><td class="p-3 text-ink align-top">SyncIQ reverse test</td><td class="p-3 text-ink align-top">Optional</td><td class="p-3 text-ink align-top">Required (02)</td></tr><tr class="border-t border-line" data-glean-id="changelog-row-6"><td class="p-3 text-ink align-top">Retention policy</td><td class="p-3 text-ink align-top">Not covered</td><td class="p-3 text-ink align-top">Retain recommended (03d, K5b+, O5)</td></tr><tr class="border-t border-line" data-glean-id="changelog-row-7"><td class="p-3 text-ink align-top">PVCs on the failover cluster</td><td class="p-3 text-ink align-top">Not covered</td><td class="p-3 text-ink align-top">Options A/B (03c), <span class="font-mono">repctl create pvc</span> (D3b)</td></tr><tr class="border-t border-line" data-glean-id="changelog-row-8"><td class="p-3 text-ink align-top">Failover operations</td><td class="p-3 text-ink align-top">3 one-liners</td><td class="p-3 text-ink align-top">Planned, unplanned, reprotect, failback keep/discard, test checklist (D1–D6)</td></tr><tr class="border-t border-line" data-glean-id="changelog-row-9"><td class="p-3 text-ink align-top">Troubleshooting</td><td class="p-3 text-ink align-top">8 rows</td><td class="p-3 text-ink align-top">+8 DR and OpenShift rows</td></tr></tbody></table></div><div class="mt-10" data-glean-id="h-sources"><p class="font-mono text-xs uppercase tracking-wider text-dell mb-1">Sources</p><h3 class="text-lg font-semibold text-ink mb-2">Dell references used for v5</h3></div><ul class="list-disc pl-5 space-y-1 text-sm text-ink leading-relaxed my-4" data-glean-id="sources"><li><a class="text-dell" href="https://dell.github.io/csm-docs/docs/concepts/replication/" target="_blank" rel="noopener">Dell CSM docs · Replication concepts</a></li><li><a class="text-dell" href="https://dell.github.io/csm-docs/docs/concepts/replication/disaster-recovery/" target="_blank" rel="noopener">Dell CSM docs · Disaster Recovery workflows</a></li><li><a class="text-dell" href="https://dell.github.io/csm-docs/docs/concepts/replication/replication-actions/" target="_blank" rel="noopener">Dell CSM docs · Replication Actions</a></li><li><a class="text-dell" href="https://dell.github.io/csm-docs/docs/tooling/repctl/" target="_blank" rel="noopener">Dell CSM docs · repctl</a></li><li><a class="text-dell" href="https://dell.github.io/csm-docs/v1/getting-started/installation/helm/modules/replication/powerscale/" target="_blank" rel="noopener">Dell CSM docs · PowerScale replication (StorageClass, ignoreNamespaces, prefix, 63 chars)</a></li><li><a class="text-dell" href="https://dell.github.io/csm-docs/v3/replication/architecture/powerscale/" target="_blank" rel="noopener">Dell CSM docs · PowerScale failover / failback / reprotect internals</a></li><li><a class="text-dell" href="https://dell.github.io/csm-docs/v2/concepts/replication/claimref/" target="_blank" rel="noopener">Dell CSM docs · PVC creation on target &amp; claimRef</a></li><li><a class="text-dell" href="https://dell.github.io/csm-docs/docs/concepts/replication/architecture/" target="_blank" rel="noopener">Dell CSM docs · Replication architecture</a></li><li><a class="text-dell" href="https://dell.github.io/csm-docs/docs/getting-started/installation/kubernetes/powerstore/csmoperator/csm-modules/replication/" target="_blank" rel="noopener">Dell CSM docs · Replication with the CSM Operator</a></li><li><a class="text-dell" href="https://dell.github.io/csm-docs/v1/getting-started/installation/openshift/powerscale/csmoperator/" target="_blank" rel="noopener">Dell CSM docs · PowerScale on OpenShift (Operator)</a></li><li><a class="text-dell" href="https://www.dell.com/support/kbdoc/en-us/000246045/dell-container-storage-modules-csm-family-newly-created-pvc-s-bind-to-an-existing-remotevolume-target-pv" target="_blank" rel="noopener">Dell KB 000246045 · PVCs binding to a replica PV</a></li><li><a class="text-dell" href="https://www.dell.com/en-us/infohub/articles/building-resiliency-for-red-hat-openshift-with-dell-powerstore-and-csm-replication" target="_blank" rel="noopener">Dell InfoHub · OpenShift resiliency with PowerStore and CSM Replication</a></li><li><a class="text-dell" href="https://www.dell.com/support/manuals/en-us/apex-cloud-pf-rh-openshift/acp_rhos_ag/install-csm-operator-using-operatorhub?guid=guid-3be4efe5-9a21-474d-ab52-70f719563bc8&amp;lang=en-us" target="_blank" rel="noopener">Dell Admin Guide · Install CSM Operator from OperatorHub (Manual approval)</a></li></ul></section><footer class="border-t border-line pt-6 text-xs text-muted leading-relaxed" data-glean-id="footer">K3s IPs are lab values (primary 192.168.1.105, secondary 192.168.1.107); OpenShift API FQDNs and CSM_VERSION are placeholders — set them in step 01. PowerScale endpoints are node 1 of each cluster; the CSI user is csi-user on both arrays. CHART_VERSION 1.11.2 (csi-isilon 2.18.1, csm-replication 1.16.0). v5 additions are documentation-based and not yet lab-run; validate against the Dell CSM 1.18 Support Matrix and Administrator Guide.</footer></main></div><script>
+document.querySelectorAll('.copy-btn').forEach(function(b){b.addEventListener('click',function(){
+ var t=b.closest('.code-card').querySelector('code').innerText;
+ function ok(){b.textContent='Copied';b.classList.add('done');setTimeout(function(){b.textContent='Copy';b.classList.remove('done')},1500)}
+ if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(ok,function(){fb()})}else{fb()}
+ function fb(){var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy');ok()}catch(e){}a.remove()}
+})});
+var links=[].slice.call(document.querySelectorAll('.toc-link'));
+if('IntersectionObserver' in window){var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){links.forEach(function(l){l.classList.toggle('active',l.dataset.target===e.target.id)})}})},{rootMargin:'-20% 0px -70% 0px'});
+document.querySelectorAll('main section[id]').forEach(function(s){io.observe(s)})}
+try{window.GleanBridge.postMessage({actionId:'export-pdf',type:'glean-add-menu',metadata:{label:'Export as PDF',icon:'export'}});
+window.GleanBridge.onMessage('action',function(d){if(d.actionId==='export-pdf')window.print()})}catch(e){}
+</script></body></html>

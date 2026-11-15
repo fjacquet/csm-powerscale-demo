@@ -1,0 +1,25 @@
+---
+- name: Find the replication controller deployment on each cluster
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ site.kubeconfig }}"
+    api_version: apps/v1
+    kind: Deployment
+    name: dell-replication-controller-manager
+  loop: "{{ site_list }}"
+  loop_control:
+    loop_var: site
+    label: "{{ site.id }}"
+  register: csm_k3s_repl_found
+
+- name: Assert exactly one controller per cluster
+  ansible.builtin.assert:
+    that: item.resources | length == 1
+    fail_msg: "dell-replication-controller-manager not found (or ambiguous) on {{ item.site.id }}. Is replication enabled in the values file?"
+    quiet: true
+  loop: "{{ csm_k3s_repl_found.results }}"
+  loop_control:
+    label: "{{ item.site.id }}"
+
+- name: Remember the namespace per cluster
+  ansible.builtin.set_fact:
+    csm_k3s_repl_ns: "{{ dict(site_list | map(attribute='id') | zip(csm_k3s_repl_found.results | map(attribute='resources') | map('first') | map(attribute='metadata') | map(attribute='namespace'))) }}"

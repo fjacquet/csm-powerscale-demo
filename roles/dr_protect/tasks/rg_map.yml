@@ -1,0 +1,48 @@
+---
+- name: Collect RG names per namespace
+  ansible.builtin.include_tasks:
+    file: rg_map_ns.yml
+    apply:
+      tags: [d1a]
+  loop: "{{ app_namespaces }}"
+  loop_control:
+    loop_var: ns
+
+- name: Assert every namespace has at least one RG
+  ansible.builtin.assert:
+    that: app_namespaces | difference(dr_protect_rg_pairs | map(attribute='ns') | list) | length == 0
+    fail_msg: "No RG found for {{ app_namespaces | difference(dr_protect_rg_pairs | map(attribute='ns') | list) }}. Check rg_annotation_key."
+    quiet: true
+
+- name: "Write the namespace to RG map (line format namespace then rg)"
+  ansible.builtin.copy:
+    content: "{% for p in dr_protect_rg_pairs %}{{ p.ns }} {{ p.rg }}\n{% endfor %}"
+    dest: "{{ dr_dir }}/rg-map.txt"
+    mode: "0644"
+
+# During an unplanned failover the primary API is gone: keep a copy off the primary site (and off this VM).
+- name: Keep a copy of the map on the Ansible controller
+  ansible.builtin.fetch:
+    src: "{{ dr_dir }}/rg-map.txt"
+    dest: "{{ playbook_dir }}/artifacts/rg-map.txt"
+    flat: true
+
+- name: Each RG exists on both clusters
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ item.0.kubeconfig }}"
+    api_version: replication.storage.dell.com/v1
+    kind: DellCSIReplicationGroup
+    name: "{{ item.1.rg }}"
+  loop: "{{ site_list | product(dr_protect_rg_pairs) | list }}"
+  loop_control:
+    label: "{{ item.0.id }}: {{ item.1.rg }}"
+  register: dr_protect_rgs
+  until: dr_protect_rgs.resources | length == 1
+  retries: 30
+  delay: 10
+
+- name: One SyncIQ policy per namespace exists on ps1
+  ansible.builtin.include_tasks:
+    file: "policy_check_{{ ps_access }}.yml"
+    apply:
+      tags: [d1a]

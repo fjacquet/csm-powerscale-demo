@@ -1,0 +1,11 @@
+---
+- name: One SyncIQ policy per namespace exists on ps1
+  ansible.builtin.raw: isi sync policies list
+  delegate_to: ps1
+  register: dr_protect_policies
+  until: >-
+    app_namespaces | map('regex_replace', '^(.*)$', sites.primary.vg_prefix ~ '-\\1-' ~ arrays.ps2.endpoint ~ '-' ~ rpo)
+    | reject('in', dr_protect_policies.stdout) | list | length == 0
+  retries: 18
+  delay: 10
+  changed_when: false

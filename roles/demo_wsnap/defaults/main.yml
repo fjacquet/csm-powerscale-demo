@@ -1,0 +1,30 @@
+---
+# StorageClass B: provisions the writable clone (csi-isilon writable-from-snapshot).
+demo_wsnap_sc_name: powerscale-writable-snapshot
+# StorageClass A (the replicated class of the protected PVC): empty = discovered (class with isReplicationEnabled).
+demo_wsnap_source_sc: ""
+# VolumeSnapshotClass: empty = the single csi-isilon class, created when none exists.
+demo_wsnap_snapclass: ""
+# Namespace where PPDM runs the cProxy data mover for A and B.
+demo_wsnap_datamover_ns: powerprotect
+demo_wsnap_ppdm_automate: false
+demo_wsnap_ppdm_host: ""
+demo_wsnap_ppdm_user: admin
+# Name of an EXISTING PPDM protection policy that covers the Wiki.js namespace (required when demo_wsnap_ppdm_automate is true).
+demo_wsnap_ppdm_policy: ""
+# demo_wsnap_ppdm_password: set from the environment or the vault, never here.
+demo_wsnap_poll_seconds: 5
+demo_wsnap_evidence_timeout: 1800
+# Cleanup phase: also delete StorageClasses B and C when set to "yes".
+demo_wsnap_remove_sc: "no"
+# The PV PPDM protects in the evidence phase. A replicated volume may not support CSI snapshots (guide v6): point these at a plain-class PVC if so.
+demo_wsnap_protected_ns: "{{ demo_wiki_namespaces | first }}"
+demo_wsnap_protected_pvc: pgdata
+# Preflight: snapshot the protected PVC once (then delete it) to check that CSI snapshots work on its class.
+demo_wsnap_probe_snapshot: true
+# PPDM registration (--tags register). Lab values: set them in inventory/<track>/group_vars/all/platform.yml.
+demo_wsnap_ppdm_datadomain: ""
+demo_wsnap_k8s_api_fqdn: ""
+demo_wsnap_k8s_api_port: 6443
+demo_wsnap_ppdm_rbac_dir: ""
+demo_wsnap_ppdm_sa_ns: powerprotect

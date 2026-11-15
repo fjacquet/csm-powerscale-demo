@@ -1,0 +1,27 @@
+apiVersion: storage.dell.com/v1
+kind: ContainerStorageModule
+metadata:
+  name: isilon
+  namespace: {{ csi_ns }}
+spec:
+  version: {{ csm_version }}
+  driver:
+    csiDriverType: "isilon"
+    authSecret: isilon-creds
+    replicas: 2
+    dnsPolicy: ClusterFirstWithHostNet
+    forceRemoveDriver: true
+    common:
+      envs:
+        - name: X_CSI_ISI_AUTH_TYPE
+          value: "1"
+        - name: X_CSI_ISI_PATH
+          value: "{{ isi_path }}"
+  modules:
+    - name: replication
+      enabled: true
+      components:
+        - name: dell-replication-controller-manager
+          envs:
+            - name: "REPLICATION_ALLOW_PVC_CREATION_ON_TARGET"
+              value: "{{ allow_pvc_creation_on_target | bool | lower }}"

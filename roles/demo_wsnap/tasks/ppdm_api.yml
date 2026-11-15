@@ -1,0 +1,89 @@
+---
+# PPDM REST run (flag demo_wsnap_ppdm_automate). The cluster registration and the policy come from ppdm_register.yml (--tags register).
+# Here: log in, check that a Kubernetes cluster is registered, find the policy, take the array baseline, start the policy, remember the activity.
+# Adapted from https://github.com/bottkars/ansible_ppdm (login token flow; start-policy role) at commit f66c9fa7246c2b9c1e59140213c41adc3e163bdb;
+# the run endpoint is POST /api/v3/protections (the older /protection-policies/{id}/protections is absent from the 20.3 OpenAPI).
+- name: PPDM REST automation
+  when: demo_wsnap_ppdm_automate | bool
+  vars:
+    _pw: "{{ demo_wsnap_ppdm_password | default(lookup('ansible.builtin.env', 'PPDM_PASSWORD', default='')) }}"
+    _headers:
+      Authorization: "Bearer {{ demo_wsnap_ppdm_token | default('') }}"
+  block:
+    - name: Require host, policy name and password
+      ansible.builtin.assert:
+        that:
+          - demo_wsnap_ppdm_host | length > 0
+          - demo_wsnap_ppdm_policy | length > 0
+          - _pw | length > 0
+        fail_msg: >-
+          demo_wsnap_ppdm_automate needs demo_wsnap_ppdm_host, demo_wsnap_ppdm_policy and the password
+          (demo_wsnap_ppdm_password or the environment variable PPDM_PASSWORD).
+        quiet: true
+
+    - name: Log in to PPDM
+      ansible.builtin.include_tasks: ppdm_login.yml
+
+    - name: List the registered Kubernetes clusters
+      ansible.builtin.uri:
+        method: GET
+        url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v2/kubernetes-clusters"
+        headers: "{{ _headers }}"
+        validate_certs: "{{ not (skip_cert_validation | bool) }}"
+        return_content: true
+      register: demo_wsnap_k8s_clusters
+      no_log: true
+
+    - name: Assert a Kubernetes cluster is registered
+      ansible.builtin.assert:
+        that: demo_wsnap_k8s_clusters.json.content | length > 0
+        fail_msg: "No Kubernetes cluster is registered in PPDM: add the cluster as an asset source in the PPDM UI first."
+        quiet: true
+
+    - name: Find the protection policy by name
+      ansible.builtin.uri:
+        method: GET
+        url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v3/protection-policies?filter=name%20eq%20%22{{ demo_wsnap_ppdm_policy | urlencode }}%22"
+        headers: "{{ _headers }}"
+        validate_certs: "{{ not (skip_cert_validation | bool) }}"
+        return_content: true
+      register: demo_wsnap_policies
+      no_log: true
+
+    - name: Assert the policy exists and has an objective
+      ansible.builtin.assert:
+        that:
+          - demo_wsnap_policies.json.content | length == 1
+          - demo_wsnap_policies.json.content[0].objectives | length > 0
+        fail_msg: "Protection policy '{{ demo_wsnap_ppdm_policy }}' was not found (or has no objective). Create it in the PPDM UI for the Wiki.js namespace."
+        quiet: true
+
+    - name: Take the watched path and the array baseline before the job
+      ansible.builtin.include_tasks: evidence_prepare.yml
+
+    - name: Remember the job start
+      ansible.builtin.set_fact:
+        demo_wsnap_job_start: "{{ now(utc=true).strftime('%Y-%m-%dT%H:%M:%SZ') }}"
+
+    - name: Start the protection policy
+      ansible.builtin.uri:
+        method: POST
+        url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v3/protections"
+        headers: "{{ _headers }}"
+        body_format: json
+        body:
+          policy:
+            id: "{{ demo_wsnap_policies.json.content[0].id }}"
+            objectives:
+              - id: "{{ demo_wsnap_policies.json.content[0].objectives[0].id }}"
+                operation:
+                  backupLevel: FULL
+        status_code: [200, 201, 202]
+        validate_certs: "{{ not (skip_cert_validation | bool) }}"
+        return_content: true
+      register: demo_wsnap_run
+      no_log: true
+
+    - name: Remember the activity
+      ansible.builtin.set_fact:
+        demo_wsnap_activity_id: "{{ demo_wsnap_run.json.results[0].activityId }}"

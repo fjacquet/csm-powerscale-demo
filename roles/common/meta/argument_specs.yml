@@ -1,0 +1,46 @@
+---
+argument_specs:
+  main:
+    short_description: Section 01/03b guardrails
+    description:
+      - 'Section 01/03b guardrails: validates platform, prefixes, 63-char volume group names and kubeconfigs; creates working
+        dirs and the operator env file.'
+    options:
+      platform:
+        type: str
+        description: k3s or openshift; must match the inventory
+        choices:
+          - k3s
+          - openshift
+        required: false
+      sites:
+        type: dict
+        description: Cluster definitions keyed primary/secondary (inventory platform.yml)
+        required: false
+      arrays:
+        type: dict
+        description: PowerScale arrays keyed ps1/ps2
+        required: false
+      app_namespaces:
+        type: list
+        description: Namespaces protected and failed over
+        required: false
+      rpo:
+        type: str
+        description: SyncIQ RPO used in policy names
+        default: Five_Minutes
+        required: false
+      dr_dir:
+        type: path
+        description: Directory for the RG map, state file and logs
+        required: false
+      common_require_passwords:
+        type: bool
+        description: Assert the vault passwords exist
+        default: false
+        required: false
+      common_create_dirs:
+        type: bool
+        description: Create working dirs and the env file
+        default: true
+        required: false

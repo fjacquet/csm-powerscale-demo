@@ -1,0 +1,39 @@
+---
+# Lab shortcut (guide D2): in production GitOps deploys the standby apps at 0 replicas.
+# Runs once per workload kind (Deployment, StatefulSet): dr_protect_kind.
+# Existing standby Deployments are never touched, so a rerun cannot scale down a live failover.
+# The original replica count is stored in an annotation so bring-up/failback scale back to the right number.
+- name: "Read the primary workloads of this kind in namespace {{ ns }}"
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ sites.primary.kubeconfig }}"
+    api_version: apps/v1
+    kind: "{{ dr_protect_kind }}"
+    namespace: "{{ ns }}"
+  register: dr_protect_primary_deploys
+
+- name: "Read the standby workloads already on secondary in namespace {{ ns }}"
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ sites.secondary.kubeconfig }}"
+    api_version: apps/v1
+    kind: "{{ dr_protect_kind }}"
+    namespace: "{{ ns }}"
+  register: dr_protect_secondary_deploys
+
+- name: "Create the missing standby workloads with 0 replicas in namespace {{ ns }}"
+  kubernetes.core.k8s:
+    kubeconfig: "{{ sites.secondary.kubeconfig }}"
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: "{{ dr_protect_kind }}"
+      metadata:
+        name: "{{ item.metadata.name }}"
+        namespace: "{{ ns }}"
+        labels: "{{ item.metadata.labels | default({}) }}"
+        annotations:
+          csm-demo/primary-replicas: "{{ item.spec.replicas | default(1) }}"
+      spec: "{{ item.spec | combine({'replicas': 0}) }}"
+  loop: "{{ dr_protect_primary_deploys.resources }}"
+  loop_control:
+    label: "{{ ns }}/{{ item.metadata.name }}"
+  when: item.metadata.name not in (dr_protect_secondary_deploys.resources | map(attribute='metadata.name') | list)

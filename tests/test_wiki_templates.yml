@@ -1,0 +1,26 @@
+---
+# Offline render test for the Wiki.js demo manifests (both tracks, both sites).
+# Hard rule: the secondary never gets a PVC or a Deployment from the shared manifest; pgdata is primary only.
+- name: Wiki.js manifests - K3s track
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars_files: [../group_vars/all/main.yml, ../inventory/k3s/group_vars/all/platform.yml]
+  vars: &render_vars
+    vault_wiki_db_password: test-db-password
+    vault_wiki_admin_password: test-admin-password
+    dr_protect_sc: isilon-replication
+    ns: app-a
+  tasks:
+    - name: Render and assert
+      ansible.builtin.import_tasks: wiki_checks.yml
+
+- name: Wiki.js manifests - OpenShift track
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars_files: [../group_vars/all/main.yml, ../inventory/openshift/group_vars/all/platform.yml]
+  vars: *render_vars
+  tasks:
+    - name: Render and assert
+      ansible.builtin.import_tasks: wiki_checks.yml

@@ -1,0 +1,105 @@
+---
+# Offline test of the verdict and of the generated Mermaid timeline.
+- name: Writable snapshot evidence rendering
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    _verdict: "{{ playbook_dir }}/../roles/demo_wsnap/tasks/evidence_verdict.yml"
+    demo_wsnap_events:
+      - { t: "10:00:05", source: ppdm, text: "Job started" }
+      - { t: "10:00:20", source: cluster, text: "pvc/ppdm-tmp created on powerscale-writable-snapshot" }
+      - { t: "10:00:22", source: array, text: "Writable snapshot /ifs/w1 from /ifs/data/csi/pv1" }
+  tasks:
+    - name: No entry ever seen gives NOT OBSERVED
+      ansible.builtin.include_tasks: "{{ _verdict }}"
+      vars:
+        demo_wsnap_seen: []
+
+    - name: Check NOT OBSERVED
+      ansible.builtin.assert:
+        that: demo_wsnap_verdict == 'NOT OBSERVED'
+        quiet: true
+
+    - name: One entry seen gives OBSERVED
+      ansible.builtin.include_tasks: "{{ _verdict }}"
+      vars:
+        demo_wsnap_seen: [{ dst_path: /ifs/w1 }]
+
+    - name: Check OBSERVED
+      ansible.builtin.assert:
+        that: demo_wsnap_verdict == 'OBSERVED'
+        quiet: true
+
+    - name: Render the timeline
+      ansible.builtin.set_fact:
+        _mmd: "{{ lookup('ansible.builtin.template', playbook_dir + '/../roles/demo_wsnap/templates/timeline.mmd.j2') }}"
+
+    - name: The timeline is a sequence diagram with the three participants and the events in time order
+      ansible.builtin.assert:
+        that:
+          - _mmd is match('(?s)sequenceDiagram')
+          - "'participant PPDM' in _mmd"
+          - "'participant Cluster' in _mmd"
+          - "'participant Array' in _mmd"
+          - _mmd.index('Job started') < _mmd.index('pvc/ppdm-tmp') < _mmd.index('Writable snapshot')
+          - "'Note over Array' in _mmd"
+        quiet: true
+
+    - name: First tick - a new PVC and a new writable snapshot appear
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/demo_wsnap/tasks/evidence_collect.yml"
+      vars:
+        demo_wsnap_events: []
+        demo_wsnap_seen: []
+        demo_wsnap_known_objects: []
+        demo_wsnap_last_state: ""
+        demo_wsnap_objects_now: ["persistentvolumeclaim/ppdm-tmp"]
+        demo_wsnap_new_entries: [{ dst_path: /ifs/w1 }]
+        demo_wsnap_state_now: RUNNING
+        demo_wsnap_tick_time: "10:00:20"
+
+    - name: The first tick records the events and is not done
+      ansible.builtin.assert:
+        that:
+          - demo_wsnap_events | length == 3
+          - demo_wsnap_events[0].source == 'cluster'
+          - demo_wsnap_events[0].text == 'persistentvolumeclaim/ppdm-tmp created'
+          - demo_wsnap_events | selectattr('source', 'eq', 'array') | map(attribute='text') | first == 'Writable snapshot /ifs/w1'
+          - demo_wsnap_seen | length == 1
+          - not (demo_wsnap_done | bool)
+        quiet: true
+
+    - name: Second tick - the writable snapshot is gone again
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/demo_wsnap/tasks/evidence_collect.yml"
+      vars:
+        demo_wsnap_objects_now: ["persistentvolumeclaim/ppdm-tmp"]
+        demo_wsnap_new_entries: []
+        demo_wsnap_state_now: RUNNING
+        demo_wsnap_tick_time: "10:00:40"
+
+    - name: A writable snapshot seen and then removed ends the evidence, without duplicate events
+      ansible.builtin.assert:
+        that:
+          - demo_wsnap_events | length == 3
+          - demo_wsnap_done | bool
+        quiet: true
+
+    - name: A completed PPDM activity ends the evidence even when nothing was seen
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/demo_wsnap/tasks/evidence_collect.yml"
+      vars:
+        demo_wsnap_events: []
+        demo_wsnap_seen: []
+        demo_wsnap_known_objects: []
+        demo_wsnap_last_state: RUNNING
+        demo_wsnap_objects_now: []
+        demo_wsnap_new_entries: []
+        demo_wsnap_state_now: COMPLETED
+        demo_wsnap_tick_time: "10:05:00"
+
+    - name: Check the completed activity
+      ansible.builtin.assert:
+        that:
+          - demo_wsnap_done | bool
+          - demo_wsnap_events | map(attribute='text') | list == ['Activity COMPLETED']
+          - demo_wsnap_events[0].source == 'ppdm'
+        quiet: true

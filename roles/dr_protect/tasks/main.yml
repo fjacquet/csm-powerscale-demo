@@ -1,0 +1,91 @@
+---
+# D1 + D1a + D2. Re-running after a failover would scale primary workloads back up: refuse unless forced.
+- name: Refuse to touch workloads while the secondary is the active site
+  ansible.builtin.stat:
+    path: "{{ dr_dir }}/state"
+  register: dr_protect_state_file
+  tags: [always]
+
+- name: Read the DR state
+  ansible.builtin.slurp:
+    src: "{{ dr_dir }}/state"
+  register: dr_protect_state_content
+  when: dr_protect_state_file.stat.exists
+  tags: [always]
+
+- name: Assert no protected namespace is served from the secondary
+  ansible.builtin.assert:
+    that: >-
+      (not dr_protect_state_file.stat.exists)
+      or (dr_protect_state_content.content | b64decode | split('\n') | select('search', ' secondary-active$')
+          | map('split', ' ') | map('first') | select('in', app_namespaces) | list | length == 0)
+      or (allow_rerun_after_failover | default(false) | bool)
+    fail_msg: >-
+      A protected namespace is served from the secondary (see {{ dr_dir }}/state). Re-running protect now would redeploy
+      its workloads on the primary. Fail back first, or pass -e allow_rerun_after_failover=true.
+    quiet: true
+  tags: [always]
+
+- name: Assert every Wiki.js namespace is a protected namespace
+  ansible.builtin.assert:
+    that: demo_wiki_namespaces | difference(app_namespaces) | length == 0
+    fail_msg: "demo_wiki_namespaces lists namespaces missing from app_namespaces: {{ demo_wiki_namespaces | difference(app_namespaces) }}"
+    quiet: true
+  tags: [always]
+
+- name: Find the replication StorageClass on primary
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ sites.primary.kubeconfig }}"
+    api_version: storage.k8s.io/v1
+    kind: StorageClass
+  register: dr_protect_scs
+  tags: [always]
+
+- name: Pick the replication StorageClass (override with -e replication_sc_name=...)
+  ansible.builtin.set_fact:
+    dr_protect_sc: >-
+      {{ replication_sc_name | default(dr_protect_scs.resources | selectattr('parameters', 'defined')
+         | selectattr('parameters', 'contains', sc_param_prefix ~ '/isReplicationEnabled')
+         | map(attribute='metadata.name') | sort | first | default('')) }}
+  tags: [always]
+
+- name: Assert a replication StorageClass exists
+  ansible.builtin.assert:
+    that: dr_protect_sc | length > 0
+    fail_msg: No replication StorageClass on primary. Run the install track first.
+    quiet: true
+  tags: [always]
+
+- name: D1 - protect namespaces (namespace on BOTH sides, PVC + writer on primary)
+  ansible.builtin.include_tasks:
+    file: protect_ns.yml
+    apply:
+      tags: [d1]
+  loop: "{{ app_namespaces }}"
+  loop_control:
+    loop_var: ns
+  tags: [d1]
+
+- name: D1a - build the namespace to RG map
+  ansible.builtin.include_tasks:
+    file: rg_map.yml
+    apply:
+      tags: [d1a]
+  tags: [d1a]
+
+- name: D2 - standby workloads on the failover cluster
+  ansible.builtin.include_tasks:
+    file: standby.yml
+    apply:
+      tags: [d2]
+  loop: "{{ app_namespaces }}"
+  loop_control:
+    loop_var: ns
+  tags: [d2]
+
+- name: Record the DR state
+  ansible.builtin.copy:
+    content: "{% for n in app_namespaces %}{{ n }} primary-active\n{% endfor %}"
+    dest: "{{ dr_dir }}/state"
+    mode: "0644"
+  when: not dr_protect_state_file.stat.exists

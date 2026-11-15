@@ -1,0 +1,65 @@
+---
+# SyncIQ smoke test with this array as source (ps_prep_array); the guide requires both directions.
+- name: "SyncIQ smoke test from one array"
+  module_defaults:
+    dellemc.powerscale.filesystem: "{{ ps_conn[ps_prep_array] }}"
+    dellemc.powerscale.synciqpolicy: "{{ ps_conn[ps_prep_array] }}"
+  vars:
+    ps_prep_peer: "{{ arrays.keys() | reject('eq', ps_prep_array) | first }}"
+    ps_prep_pol: "synciq-test-{{ ps_prep_array }}"
+    ps_prep_src: "/ifs/data/synciq-test-{{ ps_prep_array }}"
+    ps_prep_tgt: "/ifs/data/synciq-test-{{ ps_prep_array }}-target"
+  block:
+    - name: Create the source folder
+      dellemc.powerscale.filesystem:
+        path: "{{ ps_prep_src }}"
+        state: present
+
+    - name: Create the policy (manual run)
+      dellemc.powerscale.synciqpolicy:
+        policy_name: "{{ ps_prep_pol }}"
+        action: sync
+        enabled: true
+        run_job: manual
+        source_cluster:
+          source_root_path: "{{ ps_prep_src }}"
+        target_cluster:
+          target_host: "{{ arrays[ps_prep_peer].endpoint }}"
+          target_path: "{{ ps_prep_tgt }}"
+        state: present
+
+    - name: Run the job and wait for it
+      dellemc.powerscale.synciqpolicy:
+        policy_name: "{{ ps_prep_pol }}"
+        job_params:
+          action: run
+          wait_for_completion: true
+        state: present
+
+    - name: The target folder exists on the peer array
+      dellemc.powerscale.filesystem:
+        path: "{{ ps_prep_tgt }}"
+        state: present
+      module_defaults:
+        dellemc.powerscale.filesystem: "{{ ps_conn[ps_prep_peer] }}"
+      check_mode: true
+      register: ps_prep_arrived
+      failed_when: ps_prep_arrived.changed
+  always:
+    - name: Delete the policy on the source
+      dellemc.powerscale.synciqpolicy:
+        policy_name: "{{ ps_prep_pol }}"
+        state: absent
+
+    - name: Remove the source folder
+      dellemc.powerscale.filesystem:
+        path: "{{ ps_prep_src }}"
+        state: absent
+        recursive_force_delete: true
+
+    # No module covers `isi sync target break`: release the target on the peer over SSH (inventory group powerscale).
+    - name: Release and remove the target side on the peer
+      ansible.builtin.raw: "isi sync target break {{ ps_prep_pol }} --force; rm -rf {{ ps_prep_tgt }}"
+      delegate_to: "{{ ps_prep_peer }}"
+      changed_when: true
+      failed_when: false

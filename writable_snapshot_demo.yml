@@ -1,0 +1,68 @@
+---
+# Writable snapshots behind PPDM backups (experiment). NEVER imported by site.yml.
+#   ansible-playbook writable_snapshot_demo.yml --tags preflight,csm
+#   ansible-playbook writable_snapshot_demo.yml --tags ppdm,evidence -e confirm_ppdm_changes=yes [-e demo_wsnap_ppdm_automate=true]
+#   ansible-playbook writable_snapshot_demo.yml --tags register -e demo_wsnap_ppdm_automate=true -e confirm_ppdm_changes=yes   (once per lab)
+#   ansible-playbook writable_snapshot_demo.yml --tags cleanup -e confirm_writable_cleanup=yes
+- name: Writable snapshots behind PPDM backups
+  hosts: mgmt
+  gather_facts: true
+  tasks:
+    - name: Validate inputs and select the primary site
+      ansible.builtin.import_role:
+        name: demo_wsnap
+      tags: [always]
+
+    - name: Discover the source StorageClass and the VolumeSnapshotClass
+      ansible.builtin.import_role:
+        name: demo_wsnap
+        tasks_from: discover.yml
+      tags: [preflight, csm, ppdm, evidence]
+
+    - name: Preflight checks
+      ansible.builtin.import_role:
+        name: demo_wsnap
+        tasks_from: preflight.yml
+      tags: [preflight]
+
+    - name: Create the StorageClasses and the VolumeSnapshotClass
+      ansible.builtin.import_role:
+        name: demo_wsnap
+        tasks_from: storage.yml
+      tags: [csm]
+
+    - name: CSM layer - snapshot, writable clone, array check
+      ansible.builtin.import_role:
+        name: demo_wsnap
+        tasks_from: csm_check.yml
+      tags: [csm]
+
+    - name: PPDM ConfigMaps
+      ansible.builtin.import_role:
+        name: demo_wsnap
+        tasks_from: ppdm_config.yml
+      tags: [ppdm]
+
+    - name: Register the cluster in PPDM and create the policy
+      ansible.builtin.import_role:
+        name: demo_wsnap
+        tasks_from: ppdm_register.yml
+      tags: [register, never]
+
+    - name: PPDM REST automation
+      ansible.builtin.import_role:
+        name: demo_wsnap
+        tasks_from: ppdm_api.yml
+      tags: [ppdm]
+
+    - name: Evidence and verdict
+      ansible.builtin.import_role:
+        name: demo_wsnap
+        tasks_from: evidence.yml
+      tags: [evidence]
+
+    - name: Cleanup
+      ansible.builtin.import_role:
+        name: demo_wsnap
+        tasks_from: cleanup.yml
+      tags: [cleanup, never]

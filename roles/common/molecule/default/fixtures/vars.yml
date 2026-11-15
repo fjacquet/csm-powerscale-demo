@@ -1,0 +1,21 @@
+---
+platform: k3s
+kube_dir: /tmp/molecule-common/kube
+base_dir: /tmp/molecule-common/home
+dr_dir: /tmp/molecule-common/home/dr
+env_file: /tmp/molecule-common/home/csm-env.sh
+csi_ns: isilon
+chart_version: "1.11.2"
+csm_version: v1.18.2
+rpo: Five_Minutes
+app_namespaces: [app-a, app-b]
+rg_annotation_key: replication.storage.dell.com/replicationGroupName
+allow_pvc_creation_on_target: false
+option_a_values_path: ""
+arrays:
+  ps1: { name: ps1, endpoint: 192.168.1.20 }
+  ps2: { name: ps2, endpoint: 192.168.1.200 }
+sites:
+  primary: { id: primary, peer: secondary, kubeconfig: "{{ kube_dir }}/primary.yaml", install_dir: "{{ base_dir }}/ps1", k3s_ip: 192.168.1.105, local_array: ps1, remote_array: ps2, vg_prefix: csi-pri }
+  secondary: { id: secondary, peer: primary, kubeconfig: "{{ kube_dir }}/secondary.yaml", install_dir: "{{ base_dir }}/ps2", k3s_ip: 192.168.1.107, local_array: ps2, remote_array: ps1, vg_prefix: csi-sec }
+site_list: "{{ sites.values() | list }}"
