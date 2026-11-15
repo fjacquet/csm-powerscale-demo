@@ -11,7 +11,7 @@
 
     - name: Read the snapshots and PVCs of the cluster
       ansible.builtin.command: >-
-        kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} get volumesnapshot,pvc -A -o name
+        {{ demo_wsnap_kubectl }} get volumesnapshot,pvc -A -o name
       register: demo_wsnap_objects
       changed_when: false
 

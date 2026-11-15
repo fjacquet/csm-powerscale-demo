@@ -3,3 +3,4 @@
 - name: Select the primary site
   ansible.builtin.set_fact:
     demo_wsnap_site: "{{ sites.primary }}"
+    demo_wsnap_kubectl: "kubectl --kubeconfig {{ sites.primary.kubeconfig }}"

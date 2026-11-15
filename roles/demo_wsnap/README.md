@@ -20,10 +20,10 @@ the Wiki.js demo (`pgdata`). Use `writable_snapshot_demo.yml` with tags; the rol
 - `demo_wsnap_ppdm_automate` (default `false`): drive PPDM through REST; needs `demo_wsnap_ppdm_host`,
   `demo_wsnap_ppdm_policy` (an existing policy) and the password in `demo_wsnap_ppdm_password` or the environment variable `PPDM_PASSWORD`.
 - Lab values, placeholders in `platform.yml`: `demo_wsnap_ppdm_host`, `demo_wsnap_ppdm_policy`, `demo_wsnap_ppdm_datadomain`, `demo_wsnap_k8s_api_fqdn`, `demo_wsnap_k8s_api_port` (6443), `demo_wsnap_ppdm_rbac_dir`, `demo_wsnap_ppdm_sa_ns` (`powerprotect`). `--tags register` registers the cluster and creates the policy (`-e demo_wsnap_ppdm_automate=true -e confirm_ppdm_changes=yes`).
-- `demo_wsnap_ppdm_user` (default `admin`), `demo_wsnap_poll_seconds` (5), `demo_wsnap_evidence_timeout` (1800).
+- `demo_wsnap_ppdm_user` (default `admin`), `demo_wsnap_poll_seconds` (3), `demo_wsnap_evidence_timeout` (1800).
 
 Guards: `-e confirm_ppdm_changes=yes` (ConfigMaps and controller restart), `-e confirm_writable_cleanup=yes` (cleanup),
-`-e demo_wsnap_remove_sc=yes` (also delete StorageClass B).
+`-e demo_wsnap_remove_sc=yes` (also delete StorageClass B, only when this role created it: it carries the label `demo-wsnap=owner`).
 
 ## Example
 

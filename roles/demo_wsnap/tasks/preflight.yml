@@ -16,7 +16,7 @@
 
 - name: Assert the VolumeSnapshot CRDs exist
   ansible.builtin.assert:
-    that: demo_wsnap_vscs is not failed
+    that: demo_wsnap_vscs.resources is defined
     fail_msg: "VolumeSnapshotClass is not served: install the external-snapshotter CRDs (v8.4.0 or later)."
     quiet: true
 

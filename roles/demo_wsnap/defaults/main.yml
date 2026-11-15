@@ -13,10 +13,10 @@ demo_wsnap_ppdm_user: admin
 # Name of an EXISTING PPDM protection policy that covers the Wiki.js namespace (required when demo_wsnap_ppdm_automate is true).
 demo_wsnap_ppdm_policy: ""
 # demo_wsnap_ppdm_password: set from the environment or the vault, never here.
-demo_wsnap_poll_seconds: 5
+demo_wsnap_poll_seconds: 3
 demo_wsnap_evidence_timeout: 1800
-# Cleanup phase: also delete StorageClasses B and C when set to "yes".
-demo_wsnap_remove_sc: "no"
+# Cleanup phase: also delete StorageClass B when true (only if this role created it: it carries the label demo-wsnap=owner).
+demo_wsnap_remove_sc: false
 # The PV PPDM protects in the evidence phase. A replicated volume may not support CSI snapshots (guide v6): point these at a plain-class PVC if so.
 demo_wsnap_protected_ns: "{{ demo_wiki_namespaces | first }}"
 demo_wsnap_protected_pvc: pgdata

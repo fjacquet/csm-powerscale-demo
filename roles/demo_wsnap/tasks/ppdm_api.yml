@@ -14,11 +14,13 @@
       ansible.builtin.assert:
         that:
           - demo_wsnap_ppdm_host | length > 0
+          - not (demo_wsnap_ppdm_host is search('example\\.com$'))
           - demo_wsnap_ppdm_policy | length > 0
           - _pw | length > 0
+          - confirm_ppdm_changes | default('no') == 'yes'
         fail_msg: >-
-          demo_wsnap_ppdm_automate needs demo_wsnap_ppdm_host, demo_wsnap_ppdm_policy and the password
-          (demo_wsnap_ppdm_password or the environment variable PPDM_PASSWORD).
+          Starting a PPDM backup needs -e confirm_ppdm_changes=yes, a real demo_wsnap_ppdm_host (the placeholder *.example.com is refused: the
+          password would be sent to it), demo_wsnap_ppdm_policy and the password (demo_wsnap_ppdm_password or the environment variable PPDM_PASSWORD).
         quiet: true
 
     - name: Log in to PPDM
@@ -83,6 +85,12 @@
         return_content: true
       register: demo_wsnap_run
       no_log: true
+
+    - name: Assert PPDM accepted the run
+      ansible.builtin.assert:
+        that: demo_wsnap_run.json.results[0].activityId is defined
+        fail_msg: "PPDM rejected the run: status {{ demo_wsnap_run.json.results[0].status | default('?') }}, reason {{ demo_wsnap_run.json.results[0].reason | default('not given') }}."
+        quiet: true
 
     - name: Remember the activity
       ansible.builtin.set_fact:

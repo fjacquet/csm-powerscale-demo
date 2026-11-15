@@ -5,6 +5,7 @@
 #      demo_wsnap_watch_paths   optional list of src_path (OneFS directories of the watched PVs)
 # Out: demo_wsnap_writable      list of {dst_path, src_path, src_snap, created?, state?}
 #      demo_wsnap_new_entries   entries absent from the baseline and, when given, from a watched src_path
+#      demo_wsnap_leftover      new_entries plus the entries OneFS is still deleting (their src_path is null): used by the "none left" checks
 #      demo_wsnap_unmatched     entries absent from the baseline whose src_path is NOT watched (clue when the path format is wrong)
 - name: Parse the array output into entries
   ansible.builtin.set_fact:
@@ -24,11 +25,12 @@
 - name: Keep the entries that are new and belong to a watched source path
   vars:
     _after_baseline: "{{ demo_wsnap_writable | rejectattr('dst_path', 'in', demo_wsnap_baseline | default([])) | list }}"
+    _watched_new: >-
+      {{ _after_baseline | selectattr('src_path', 'in', demo_wsnap_watch_paths | default(_after_baseline | map(attribute='src_path') | list)) | list }}
   ansible.builtin.set_fact:
     demo_wsnap_unmatched: >-
       {{ _after_baseline | rejectattr('src_path', 'in', demo_wsnap_watch_paths | default(_after_baseline | map(attribute='src_path') | list)) | list }}
-    demo_wsnap_new_entries: >-
-      {{ demo_wsnap_writable
-         | rejectattr('dst_path', 'in', demo_wsnap_baseline | default([]))
-         | selectattr('src_path', 'in', demo_wsnap_watch_paths | default(demo_wsnap_writable | map(attribute='src_path') | list))
-         | list }}
+    demo_wsnap_leftover: >-
+      {{ (_after_baseline | selectattr('state', 'defined') | selectattr('state', 'eq', 'deleting') | list
+          + _watched_new) | unique | list }}
+    demo_wsnap_new_entries: "{{ _watched_new }}"

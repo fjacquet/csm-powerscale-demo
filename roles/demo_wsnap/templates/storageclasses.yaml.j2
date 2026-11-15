@@ -6,6 +6,8 @@ apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: {{ demo_wsnap_sc_name }}
+  labels:
+    demo-wsnap: owner
 provisioner: {{ demo_wsnap_source.provisioner }}
 parameters:
   csi-isilon.dellemc.com/writable-from-snapshot: "true"

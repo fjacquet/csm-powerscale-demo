@@ -1,0 +1,83 @@
+---
+# Offline regression tests for the code-review findings: pure tasks are run, task files with REST calls are checked structurally.
+- name: Writable snapshot review findings
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files: [../group_vars/all/main.yml]
+  vars:
+    _t: "{{ playbook_dir }}/../roles/demo_wsnap/tasks"
+    _rep_false: { metadata: { name: sc-off }, provisioner: csi-isilon.dellemc.com, parameters: { replication.storage.dell.com/isReplicationEnabled: "false" } }
+    _rep_true: { metadata: { name: sc-on }, provisioner: csi-isilon.dellemc.com, parameters: { replication.storage.dell.com/isReplicationEnabled: "true" } }
+    _reg: "{{ lookup('ansible.builtin.file', _t + '/ppdm_register.yml') }}"
+    _api: "{{ lookup('ansible.builtin.file', _t + '/ppdm_api.yml') }}"
+    _pre: "{{ lookup('ansible.builtin.file', _t + '/preflight.yml') }}"
+    _evi: "{{ lookup('ansible.builtin.file', _t + '/evidence.yml') }}"
+    _csm: "{{ lookup('ansible.builtin.file', _t + '/csm_check.yml') }}"
+    _clean: "{{ lookup('ansible.builtin.file', _t + '/cleanup.yml') }}"
+    _stor: "{{ lookup('ansible.builtin.file', _t + '/storage.yml') }}"
+    _sc_tpl: "{{ lookup('ansible.builtin.file', playbook_dir + '/../roles/demo_wsnap/templates/storageclasses.yaml.j2') }}"
+    _reader_tpl: "{{ lookup('ansible.builtin.file', playbook_dir + '/../roles/demo_wsnap/templates/csm_check.yaml.j2') }}"
+  tasks:
+    - name: 13. A class with isReplicationEnabled false is not replicated
+      block:
+        - name: Select among an off and an on class
+          ansible.builtin.include_tasks: "{{ _t }}/discover_select.yml"
+          vars:
+            demo_wsnap_sc_list: ["{{ _rep_false }}", "{{ _rep_true }}"]
+            demo_wsnap_vsc_list: []
+            demo_wsnap_source_sc: ""
+            demo_wsnap_snapclass: ""
+        - name: Only the enabled class is chosen
+          ansible.builtin.assert:
+            that: demo_wsnap_source.metadata.name == 'sc-on'
+            quiet: true
+
+    - name: 5. A deleting entry (null src_path) counts as a leftover but not as a new watched entry
+      block:
+        - name: Parse an active and a deleting entry
+          ansible.builtin.include_tasks: "{{ _t }}/array_parse.yml"
+          vars:
+            demo_wsnap_baseline: []
+            demo_wsnap_watch_paths: [/ifs/data/csi/pv1]
+            demo_wsnap_parse_input:
+              writable:
+                - { dst_path: /ifs/w1, src_path: /ifs/data/csi/pv1, state: active }
+                - { dst_path: /ifs/w2, src_path: null, state: deleting }
+        - name: Leftover holds both, new entries only the watched one
+          ansible.builtin.assert:
+            that:
+              - demo_wsnap_new_entries | length == 1
+              - demo_wsnap_leftover | length == 2
+            quiet: true
+
+    - name: 6. The verdict names the PPDM job result
+      block:
+        - name: Verdict with a failed job
+          ansible.builtin.include_tasks: "{{ _t }}/evidence_verdict.yml"
+          vars:
+            demo_wsnap_seen: []
+            demo_wsnap_activity: { state: COMPLETED, result: { status: FAILED } }
+            demo_wsnap_ppdm_automate: true
+        - name: NOT OBSERVED carries the job status
+          ansible.builtin.assert:
+            that:
+              - demo_wsnap_verdict == 'NOT OBSERVED'
+              - "'FAILED' in demo_wsnap_verdict_note"
+            quiet: true
+
+    - name: Structural fixes in task files and templates
+      ansible.builtin.assert:
+        that:
+          - "'.json.content[0]' in _reg and 'type=HOST' in _reg"          # 1
+          - "'/writable' in _reg and 'state: directory' in _reg"  # 2
+          - "'state: directory' in _evi"                                  # 2
+          - "'is not failed' not in _pre"                                 # 3
+          - "'set -e' in _reader_tpl"                                     # 4
+          - "'confirm_ppdm_changes' in _api and 'example.com' in _api"    # 8
+          - "'example.com' in _reg"                                       # 8
+          - "'demo-wsnap' in _sc_tpl and 'demo-wsnap' in _clean"          # 7
+          - "'restoreSize' in _csm and 'demo_wsnap_restore_size.stdout | length > 0' in _csm"  # 11
+          - "'demo_wsnap_leftover' in _csm and 'demo_wsnap_leftover' in _clean"  # 5
+          - "'activityId is defined' in _api"                             # 9
+        quiet: true

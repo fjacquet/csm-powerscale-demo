@@ -6,8 +6,9 @@
 - name: Choose StorageClass A
   vars:
     _replicated: >-
-      {{ demo_wsnap_sc_list | selectattr('provisioner', 'eq', 'csi-isilon.dellemc.com')
-         | selectattr('parameters', 'defined') | selectattr('parameters', 'contains', sc_param_prefix ~ '/isReplicationEnabled') | list }}
+      {% set r = [] %}{% for sc in demo_wsnap_sc_list
+         if sc.provisioner == 'csi-isilon.dellemc.com'
+         and ((sc.parameters | default({})).get(sc_param_prefix ~ '/isReplicationEnabled', 'false') | string | lower) == 'true' %}{% set _ = r.append(sc) %}{% endfor %}{{ r }}
     _named: "{{ demo_wsnap_sc_list | selectattr('metadata.name', 'eq', demo_wsnap_source_sc) | list }}"
     _candidates: "{{ _named if demo_wsnap_source_sc | length > 0 else _replicated }}"
   block:

@@ -52,8 +52,8 @@ argument_specs:
         required: false
       demo_wsnap_poll_seconds:
         type: int
-        description: Polling interval of the evidence phase
-        default: 5
+        description: Polling interval of the evidence phase (a writable snapshot that lives less than this is missed)
+        default: 3
         required: false
       demo_wsnap_evidence_timeout:
         type: int
@@ -61,9 +61,9 @@ argument_specs:
         default: 1800
         required: false
       demo_wsnap_remove_sc:
-        type: str
-        description: 'Cleanup phase: set to "yes" to also delete StorageClasses B and C'
-        default: "no"
+        type: bool
+        description: 'Cleanup phase: also delete StorageClass B, only when this role created it (label demo-wsnap=owner)'
+        default: false
         required: false
       demo_wsnap_protected_ns:
         type: str

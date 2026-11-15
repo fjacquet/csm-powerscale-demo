@@ -9,29 +9,44 @@
 
 - name: Find the PV of the clone (absent when the clone was never created)
   ansible.builtin.command: >-
-    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }} get pvc demo-ws-clone -o jsonpath={.spec.volumeName}
+    {{ demo_wsnap_kubectl }} -n {{ demo_wsnap_protected_ns }} get pvc demo-ws-clone -o jsonpath={.spec.volumeName}
   register: demo_wsnap_cleanup_clone_pv
   changed_when: false
   failed_when: false
 
 - name: Delete the reader, the clone and the snapshots in dependency order
   ansible.builtin.command: >-
-    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }}
+    {{ demo_wsnap_kubectl }} -n {{ demo_wsnap_protected_ns }}
     delete {{ item }} --ignore-not-found --wait=true --timeout=180s
   loop: [pod/demo-ws-reader, pvc/demo-ws-clone, volumesnapshot/demo-ws-snap, volumesnapshot/demo-ws-probe]
   changed_when: true
 
 - name: Wait until the clone PV is gone (the writable snapshot goes with its PV)
   ansible.builtin.command: >-
-    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} wait --for=delete pv/{{ demo_wsnap_cleanup_clone_pv.stdout }} --timeout=180s
+    {{ demo_wsnap_kubectl }} wait --for=delete pv/{{ demo_wsnap_cleanup_clone_pv.stdout }} --timeout=180s
+  register: demo_wsnap_pv_wait
   changed_when: false
+  failed_when: demo_wsnap_pv_wait.rc != 0 and 'NotFound' not in demo_wsnap_pv_wait.stderr
   when: demo_wsnap_cleanup_clone_pv.rc == 0 and demo_wsnap_cleanup_clone_pv.stdout | length > 0
 
-- name: Delete StorageClass B on request
+- name: Find StorageClass B when this role created it (label demo-wsnap=owner)
   ansible.builtin.command: >-
-    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} delete storageclass {{ demo_wsnap_sc_name }} --ignore-not-found
+    {{ demo_wsnap_kubectl }} get storageclass -l demo-wsnap=owner -o name
+  register: demo_wsnap_owned_sc
+  changed_when: false
+  when: demo_wsnap_remove_sc | bool
+
+- name: Delete StorageClass B on request, only when it is ours
+  ansible.builtin.command: >-
+    {{ demo_wsnap_kubectl }} delete {{ item }}
+  loop: "{{ demo_wsnap_owned_sc.stdout_lines | select('search', '/' ~ demo_wsnap_sc_name ~ '$') | list }}"
   changed_when: true
-  when: demo_wsnap_remove_sc == 'yes'
+  when: demo_wsnap_remove_sc | bool
+
+- name: Say when StorageClass B was kept because it is not ours
+  ansible.builtin.debug:
+    msg: "StorageClass {{ demo_wsnap_sc_name }} has no label demo-wsnap=owner (it existed before this role): kept."
+  when: demo_wsnap_remove_sc | bool and demo_wsnap_owned_sc.stdout_lines | select('search', '/' ~ demo_wsnap_sc_name ~ '$') | list | length == 0
 
 - name: Verify no writable snapshot of the protected volume remains
   block:
@@ -43,8 +58,8 @@
       vars:
         demo_wsnap_baseline: []
 
-    - name: Assert none is left
+    - name: Assert none is left (entries OneFS is still deleting count; a PPDM job running now would too)
       ansible.builtin.assert:
-        that: demo_wsnap_new_entries | length == 0
-        fail_msg: "Writable snapshots of {{ demo_wsnap_watch_paths | join(', ') }} remain on the array: {{ demo_wsnap_new_entries }}. Delete them with isi snapshot writable delete."
+        that: demo_wsnap_leftover | length == 0
+        fail_msg: "Writable snapshots of {{ demo_wsnap_watch_paths | join(', ') }} remain on the array: {{ demo_wsnap_leftover }}. Wait for OneFS or delete them with isi snapshot writable delete."
         quiet: true

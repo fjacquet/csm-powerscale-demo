@@ -9,7 +9,6 @@
     _headers:
       Authorization: "Bearer {{ demo_wsnap_ppdm_token | default('') }}"
     _cred_name: "ppdm-discovery-{{ demo_wsnap_k8s_api_fqdn }}"
-    _protected_ns: "{{ demo_wsnap_protected_ns }}"
   block:
     - name: Require the flag, the confirmation and the lab inputs
       ansible.builtin.assert:
@@ -17,12 +16,13 @@
           - demo_wsnap_ppdm_automate | bool
           - confirm_ppdm_changes | default('no') == 'yes'
           - demo_wsnap_ppdm_host | length > 0
+          - not (demo_wsnap_ppdm_host is search('example\\.com$'))
           - demo_wsnap_ppdm_policy | length > 0
           - demo_wsnap_ppdm_datadomain | length > 0
           - demo_wsnap_k8s_api_fqdn | length > 0
           - demo_wsnap_ppdm_rbac_dir | length > 0
         fail_msg: >-
-          Registration needs -e demo_wsnap_ppdm_automate=true -e confirm_ppdm_changes=yes and the lab values demo_wsnap_ppdm_host,
+          Registration needs a real PPDM host (the placeholder *.example.com is refused: the password would be sent to it) and -e demo_wsnap_ppdm_automate=true -e confirm_ppdm_changes=yes and the lab values demo_wsnap_ppdm_host,
           demo_wsnap_ppdm_policy, demo_wsnap_ppdm_datadomain, demo_wsnap_k8s_api_fqdn, demo_wsnap_ppdm_rbac_dir (platform.yml) plus the password
           (demo_wsnap_ppdm_password or PPDM_PASSWORD).
         quiet: true
@@ -41,10 +41,16 @@
 
     - name: Apply the PPDM RBAC on the cluster
       ansible.builtin.command: >-
-        kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} apply -f {{ demo_wsnap_ppdm_rbac_dir }}/{{ item }}
+        {{ demo_wsnap_kubectl }} apply -f {{ demo_wsnap_ppdm_rbac_dir }}/{{ item }}
       loop: [ppdm-controller-rbac.yaml, ppdm-discovery.yaml]
       register: demo_wsnap_rbac_applied
       changed_when: "'created' in demo_wsnap_rbac_applied.stdout or 'configured' in demo_wsnap_rbac_applied.stdout"
+
+    - name: Directory for the rendered manifests
+      ansible.builtin.file:
+        path: "{{ dr_dir }}/writable"
+        state: directory
+        mode: "0700"
 
     - name: Render the discovery token Secret (needed since Kubernetes 1.24)
       ansible.builtin.template:
@@ -54,13 +60,13 @@
 
     - name: Apply the discovery token Secret
       ansible.builtin.command: >-
-        kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} apply -f {{ dr_dir }}/writable/ppdm-token-secret.yaml
+        {{ demo_wsnap_kubectl }} apply -f {{ dr_dir }}/writable/ppdm-token-secret.yaml
       register: demo_wsnap_secret_applied
       changed_when: "'created' in demo_wsnap_secret_applied.stdout or 'configured' in demo_wsnap_secret_applied.stdout"
 
     - name: Read the discovery token
       ansible.builtin.command: >-
-        kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_ppdm_sa_ns }} get secret ppdm-discovery-serviceaccount-token -o jsonpath={.data.token}
+        {{ demo_wsnap_kubectl }} -n {{ demo_wsnap_ppdm_sa_ns }} get secret ppdm-discovery-serviceaccount-token -o jsonpath={.data.token}
       register: demo_wsnap_sa_token
       changed_when: false
       no_log: true
@@ -107,24 +113,35 @@
     - name: Get the certificate of the Kubernetes API server
       ansible.builtin.uri:
         method: GET
-        url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v2/certificates?host={{ demo_wsnap_k8s_api_fqdn }}&port={{ demo_wsnap_k8s_api_port }}&type=Host"
+        url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v2/certificates?host={{ demo_wsnap_k8s_api_fqdn }}&port={{ demo_wsnap_k8s_api_port }}&type=HOST"
         headers: "{{ _headers }}"
         validate_certs: "{{ not (skip_cert_validation | bool) }}"
         return_content: true
-      register: demo_wsnap_cert
+      register: demo_wsnap_cert_list
+      no_log: true
+
+    - name: Assert PPDM returned the certificate of the API server
+      ansible.builtin.assert:
+        that: demo_wsnap_cert_list.json.content | length > 0
+        fail_msg: "PPDM could not fetch the certificate of {{ demo_wsnap_k8s_api_fqdn }}:{{ demo_wsnap_k8s_api_port }} (is the API server reachable from PPDM?)."
+        quiet: true
+
+    - name: Keep the certificate
+      ansible.builtin.set_fact:
+        demo_wsnap_cert: "{{ demo_wsnap_cert_list.json.content[0] }}"
       no_log: true
 
     - name: Accept the certificate
       ansible.builtin.uri:
         method: PUT
-        url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v2/certificates/{{ demo_wsnap_cert.json.id }}"
+        url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v2/certificates/{{ demo_wsnap_cert.id }}"
         headers: "{{ _headers }}"
         body_format: json
-        body: "{{ demo_wsnap_cert.json | combine({'state': 'ACCEPTED'}) }}"
+        body: "{{ demo_wsnap_cert | combine({'state': 'ACCEPTED'}) }}"
         status_code: [200, 202]
         validate_certs: "{{ not (skip_cert_validation | bool) }}"
       no_log: true
-      when: demo_wsnap_cert.json.state | default('') != 'ACCEPTED'
+      when: demo_wsnap_cert.state | default('') != 'ACCEPTED'
 
     - name: Look for the Kubernetes asset source
       ansible.builtin.uri:
@@ -177,7 +194,7 @@
     - name: Wait for the protected namespace to be discovered
       ansible.builtin.uri:
         method: GET
-        url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v2/assets?filter=name%20eq%20%22{{ _protected_ns | urlencode }}%22%20and%20type%20eq%20%22KUBERNETES%22"
+        url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v2/assets?filter=name%20eq%20%22{{ demo_wsnap_protected_ns | urlencode }}%22%20and%20type%20eq%20%22KUBERNETES%22"
         headers: "{{ _headers }}"
         validate_certs: "{{ not (skip_cert_validation | bool) }}"
         return_content: true

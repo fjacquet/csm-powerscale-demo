@@ -4,7 +4,7 @@
 # It only warns: the CSM layer does not depend on it, but PPDM cannot back up a PVC whose CSI snapshot never gets ready.
 - name: Check that the protected PVC exists
   ansible.builtin.command: >-
-    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }} get pvc {{ demo_wsnap_protected_pvc }} -o name
+    {{ demo_wsnap_kubectl }} -n {{ demo_wsnap_protected_ns }} get pvc {{ demo_wsnap_protected_pvc }} -o name
   register: demo_wsnap_probe_pvc
   changed_when: false
   failed_when: false
@@ -25,7 +25,7 @@
 
     - name: Wait for the probe snapshot to be ready
       ansible.builtin.command: >-
-        kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }}
+        {{ demo_wsnap_kubectl }} -n {{ demo_wsnap_protected_ns }}
         wait --for=jsonpath={.status.readyToUse}=true volumesnapshot/demo-ws-probe --timeout=90s
       register: demo_wsnap_probe_wait
       changed_when: false
@@ -33,7 +33,7 @@
 
     - name: Read the snapshot error when it is not ready
       ansible.builtin.command: >-
-        kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }}
+        {{ demo_wsnap_kubectl }} -n {{ demo_wsnap_protected_ns }}
         get volumesnapshot demo-ws-probe -o jsonpath={.status.error.message}
       register: demo_wsnap_probe_error
       changed_when: false
@@ -43,7 +43,7 @@
   always:
     - name: Delete the probe snapshot
       ansible.builtin.command: >-
-        kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }}
+        {{ demo_wsnap_kubectl }} -n {{ demo_wsnap_protected_ns }}
         delete volumesnapshot demo-ws-probe --ignore-not-found --wait=true --timeout=120s
       changed_when: false
       when: demo_wsnap_probe_pvc.rc == 0

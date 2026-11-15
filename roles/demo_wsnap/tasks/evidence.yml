@@ -10,13 +10,19 @@
       (--tags ppdm,evidence): the token, the activity id and the baseline taken before the start are not kept between runs.
     quiet: true
 
+- name: Directory for the timeline
+  ansible.builtin.file:
+    path: "{{ dr_dir }}/writable"
+    state: directory
+    mode: "0700"
+
 - name: Take the watched path and the baseline when no REST job did it
   ansible.builtin.include_tasks: evidence_prepare.yml
   when: demo_wsnap_job_start is not defined
 
 - name: List the snapshots and PVCs that exist before the job (they are not events)
   ansible.builtin.command: >-
-    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} get volumesnapshot,pvc -A -o name
+    {{ demo_wsnap_kubectl }} get volumesnapshot,pvc -A -o name
   register: demo_wsnap_objects_before
   changed_when: false
 
@@ -57,7 +63,7 @@
 - name: Report the verdict
   ansible.builtin.debug:
     msg: >-
-      {{ demo_wsnap_verdict }} - timeline: {{ dr_dir }}/writable/timeline.mmd.
+      {{ demo_wsnap_verdict }} - timeline: {{ dr_dir }}/writable/timeline.mmd. {{ demo_wsnap_verdict_note }}
       {{ ('PPDM activity: ' ~ (demo_wsnap_activity | string)) if demo_wsnap_ppdm_automate | bool and demo_wsnap_activity is defined else '' }}
       {{ ('New writable snapshots on other paths (check watch_path.yml against the PV volumeHandle): '
           ~ (demo_wsnap_unmatched | map(attribute='src_path') | unique | list | join(', ')))

@@ -24,18 +24,30 @@
 - name: Apply the ConfigMaps and restart the PPDM controller
   when: confirm_ppdm_changes | default('no') == 'yes'
   block:
+    - name: List the PPDM ConfigMaps that exist (apply replaces their content)
+      ansible.builtin.command: >-
+        {{ demo_wsnap_kubectl }} -n powerprotect get configmap ppdm-snapshot-class-mapping
+        ppdm-snapshot-storage-class-mapping ppdm-custom-namespace-storage-class-mapping --ignore-not-found -o name
+      register: demo_wsnap_cm_existing
+      changed_when: false
+
+    - name: Warn about mappings that will be overwritten
+      ansible.builtin.debug:
+        msg: "Overwriting existing ConfigMaps (their other mappings are lost; saved copies are in your cluster history only): {{ demo_wsnap_cm_existing.stdout_lines | join(', ') }}"
+      when: demo_wsnap_cm_existing.stdout_lines | length > 0
+
     - name: Apply the PPDM ConfigMaps
       ansible.builtin.command: >-
-        kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} apply -f {{ dr_dir }}/writable/ppdm-configmaps.yaml
+        {{ demo_wsnap_kubectl }} apply -f {{ dr_dir }}/writable/ppdm-configmaps.yaml
       register: demo_wsnap_cm_applied
       changed_when: "'created' in demo_wsnap_cm_applied.stdout or 'configured' in demo_wsnap_cm_applied.stdout"
 
     - name: Restart the PPDM controller so it reads the ConfigMaps
       ansible.builtin.command: >-
-        kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n powerprotect rollout restart deployment powerprotect-controller
+        {{ demo_wsnap_kubectl }} -n powerprotect rollout restart deployment powerprotect-controller
       changed_when: true
 
     - name: Wait for the PPDM controller
       ansible.builtin.command: >-
-        kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n powerprotect rollout status deployment powerprotect-controller --timeout=300s
+        {{ demo_wsnap_kubectl }} -n powerprotect rollout status deployment powerprotect-controller --timeout=300s
       changed_when: false

@@ -223,3 +223,21 @@ Two of these change what was approved and need the user's eye: R5 and R9.
   Lab values are placeholders in `inventory/<track>/group_vars/all/platform.yml`. All 17+ operations are checked against the 20.3 OpenAPI by
   `tests/test_writable_snap_endpoints.yml`; the bodies themselves follow the OpenAPI schema and bottkars and are unverified against a live PPDM
   (the namespace asset type "KUBERNETES" in the discovery wait is to confirm).
+
+## Post-commit review (code review and Zen, 2026-11-15)
+
+Fixed, each with a test that failed first (`tests/test_writable_snap_review.yml`): certificate lookup takes `content[0]` and `type=HOST`;
+`{{ dr_dir }}/writable` created by register and evidence; preflight CRD check can now fail; reader pod uses `set -e` so a refused write fails;
+`ppdm_api` needs `confirm_ppdm_changes` and refuses a `*.example.com` host; the verdict prints the PPDM job result and a polling caveat; entries
+OneFS is still deleting (null `src_path`) count as leftovers; StorageClass B carries `demo-wsnap=owner` and is deleted only with it; `restoreSize`
+asserted; run rejection reports PPDM's `reason`; `isReplicationEnabled: "false"` is not replicated; `kubectl wait --for=delete` tolerates NotFound;
+existing ConfigMaps are listed before being overwritten; `remove_sc` is a bool; `demo_wsnap_kubectl` replaces 33 copies of the kubectl prefix.
+
+Rulings:
+- Finding 6 (CANCELED job never ends the loop) was wrong against the 20.3 schema: activity `state` is QUEUED|RUNNING|PENDING_CANCELLATION|COMPLETED,
+  and CANCELED/FAILED are `result.status` of a COMPLETED activity. The loop ends; the verdict now shows the status.
+- Role not split into `demo_ppdm` (Zen 1): `job_start`, the baseline and the activity feed the evidence phase, so a split needs a cross-role
+  interface that no lab has validated. Cost if wrong: a larger role.
+- `demo-ws-*` names stay literals (Zen: convention over configuration); `_api` base-URL variable not introduced because the endpoints test reads the literal URLs.
+- Tick loop and CLI-table parser kept: tested, and `--format json` is unverified on the array.
+- Cleanup's final check still uses an empty baseline: a running PPDM job on the same path makes it fail (message says so).

@@ -1,5 +1,12 @@
 ---
-# Pure. In: demo_wsnap_seen (every new writable snapshot of the watched path seen during the job). Out: demo_wsnap_verdict.
+# Pure. In: demo_wsnap_seen (every new writable snapshot of the watched path seen during the job), and optionally demo_wsnap_activity
+# and demo_wsnap_ppdm_automate. Out: demo_wsnap_verdict and demo_wsnap_verdict_note (job result, and the polling caveat for a negative).
 - name: Decide the verdict
+  vars:
+    _status: "{{ (demo_wsnap_activity | default({})).result.status | default('unknown') if demo_wsnap_ppdm_automate | default(false) | bool else '' }}"
   ansible.builtin.set_fact:
     demo_wsnap_verdict: "{{ 'OBSERVED' if demo_wsnap_seen | length > 0 else 'NOT OBSERVED' }}"
+    demo_wsnap_verdict_note: >-
+      {{ ('PPDM job result: ' ~ _status ~ '. ') if _status | length > 0 else '' }}
+      {{ ('A writable snapshot that lived less than one polling interval (' ~ demo_wsnap_poll_seconds | default('?') ~ ' s) would be missed: lower demo_wsnap_poll_seconds to be sure.')
+         if demo_wsnap_seen | length == 0 else '' }}

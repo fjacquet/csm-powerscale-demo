@@ -41,7 +41,7 @@ spec:
   containers:
     - name: app
       image: {{ demo_image }}
-      command: [sh, -c, "n=$(ls -A /data | wc -l); touch /data/.demo-ws-writable; echo $n"]
+      command: [sh, -c, "set -e; n=$(ls -A /data | wc -l); touch /data/.demo-ws-writable; echo $n"]
       securityContext: {{ _sec | to_json }}
       volumeMounts:
         - { name: data, mountPath: /data }

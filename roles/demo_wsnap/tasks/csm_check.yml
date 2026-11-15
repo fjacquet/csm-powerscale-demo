@@ -4,7 +4,7 @@
 # A failure leaves the objects for inspection; --tags cleanup removes them.
 - name: List the leftovers of a previous run
   ansible.builtin.command: >-
-    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }}
+    {{ demo_wsnap_kubectl }} -n {{ demo_wsnap_protected_ns }}
     get volumesnapshot/demo-ws-snap pvc/demo-ws-clone pod/demo-ws-reader --ignore-not-found -o name
   register: demo_wsnap_leftovers
   changed_when: false
@@ -33,7 +33,7 @@
 
 - name: Wait for the snapshot to be ready
   ansible.builtin.command: >-
-    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }}
+    {{ demo_wsnap_kubectl }} -n {{ demo_wsnap_protected_ns }}
     wait --for=jsonpath={.status.readyToUse}=true volumesnapshot/demo-ws-snap --timeout=180s
   register: demo_wsnap_snap_wait
   changed_when: false
@@ -41,7 +41,7 @@
 
 - name: Read the snapshot error when it is not ready
   ansible.builtin.command: >-
-    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }}
+    {{ demo_wsnap_kubectl }} -n {{ demo_wsnap_protected_ns }}
     get volumesnapshot demo-ws-snap -o jsonpath={.status.error.message}
   register: demo_wsnap_snap_error
   changed_when: false
@@ -58,9 +58,15 @@
 
 - name: Read the restore size of the snapshot
   ansible.builtin.command: >-
-    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }} get volumesnapshot demo-ws-snap -o jsonpath={.status.restoreSize}
+    {{ demo_wsnap_kubectl }} -n {{ demo_wsnap_protected_ns }} get volumesnapshot demo-ws-snap -o jsonpath={.status.restoreSize}
   register: demo_wsnap_restore_size
   changed_when: false
+
+- name: Assert the snapshot reports a restore size (the clone needs it)
+  ansible.builtin.assert:
+    that: demo_wsnap_restore_size.stdout | length > 0
+    fail_msg: "VolumeSnapshot demo-ws-snap has no status.restoreSize: the driver did not finish the snapshot."
+    quiet: true
 
 - name: Provision the writable clone from the snapshot
   ansible.builtin.include_tasks: csm_step.yml
@@ -70,7 +76,7 @@
 
 - name: Wait for the clone PVC
   ansible.builtin.command: >-
-    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }}
+    {{ demo_wsnap_kubectl }} -n {{ demo_wsnap_protected_ns }}
     wait --for=jsonpath={.status.phase}=Bound pvc/demo-ws-clone --timeout=180s
   changed_when: false
 
@@ -81,13 +87,13 @@
 
 - name: Wait for the reader
   ansible.builtin.command: >-
-    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }}
+    {{ demo_wsnap_kubectl }} -n {{ demo_wsnap_protected_ns }}
     wait --for=jsonpath={.status.phase}=Succeeded pod/demo-ws-reader --timeout=180s
   changed_when: false
 
 - name: Fetch the reader output
   ansible.builtin.command: >-
-    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }} logs demo-ws-reader
+    {{ demo_wsnap_kubectl }} -n {{ demo_wsnap_protected_ns }} logs demo-ws-reader
   register: demo_wsnap_reader
   changed_when: false
 
@@ -111,27 +117,29 @@
 
 - name: Read the PV name of the clone
   ansible.builtin.command: >-
-    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }} get pvc demo-ws-clone -o jsonpath={.spec.volumeName}
+    {{ demo_wsnap_kubectl }} -n {{ demo_wsnap_protected_ns }} get pvc demo-ws-clone -o jsonpath={.spec.volumeName}
   register: demo_wsnap_clone_pv
   changed_when: false
 
 - name: Delete the reader, the clone and the snapshot in dependency order
   ansible.builtin.command: >-
-    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} -n {{ demo_wsnap_protected_ns }}
+    {{ demo_wsnap_kubectl }} -n {{ demo_wsnap_protected_ns }}
     delete {{ item }} --wait=true --timeout=180s
   loop: [pod/demo-ws-reader, pvc/demo-ws-clone, volumesnapshot/demo-ws-snap]
   changed_when: true
 
 - name: Wait until the clone PV is gone (OneFS removes the writable snapshot with it, after the PVC delete returns)
   ansible.builtin.command: >-
-    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} wait --for=delete pv/{{ demo_wsnap_clone_pv.stdout }} --timeout=180s
+    {{ demo_wsnap_kubectl }} wait --for=delete pv/{{ demo_wsnap_clone_pv.stdout }} --timeout=180s
+  register: demo_wsnap_pv_wait
   changed_when: false
+  failed_when: demo_wsnap_pv_wait.rc != 0 and 'NotFound' not in demo_wsnap_pv_wait.stderr
 
 - name: List the writable snapshots after the cleanup
   ansible.builtin.include_tasks: array_list.yml
 
 - name: Assert no writable snapshot is left for the source volume
   ansible.builtin.assert:
-    that: demo_wsnap_new_entries | length == 0
-    fail_msg: "A writable snapshot of {{ demo_wsnap_watch_paths | join(', ') }} remains on the array after the cleanup: {{ demo_wsnap_new_entries }}."
+    that: demo_wsnap_leftover | length == 0
+    fail_msg: "A writable snapshot of {{ demo_wsnap_watch_paths | join(', ') }} remains on the array after the cleanup (or OneFS is still deleting it): {{ demo_wsnap_leftover }}."
     quiet: true

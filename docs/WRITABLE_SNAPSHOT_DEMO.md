@@ -130,7 +130,7 @@ PPDM_PASSWORD=... ansible-playbook -i inventory/openshift writable_snapshot_demo
 # 3 bis. REST mode: the policy exists (step 2 bis or the UI); the password comes from the environment.
 #        ppdm and evidence must run in the SAME run (the token, the activity id and the baseline are not kept between runs).
 PPDM_PASSWORD=... ansible-playbook -i inventory/openshift writable_snapshot_demo.yml --tags ppdm,evidence \
-  -e demo_wsnap_ppdm_automate=true
+  -e demo_wsnap_ppdm_automate=true -e confirm_ppdm_changes=yes
 
 # 4. cleanup (StorageClasses kept unless -e demo_wsnap_remove_sc=yes)
 ansible-playbook -i inventory/openshift writable_snapshot_demo.yml --tags cleanup -e confirm_writable_cleanup=yes

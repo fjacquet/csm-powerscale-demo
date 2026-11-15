@@ -15,7 +15,7 @@
 
 - name: Apply the StorageClass B when it does not exist yet
   ansible.builtin.command: >-
-    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} apply -f {{ dr_dir }}/writable/storageclasses.yaml
+    {{ demo_wsnap_kubectl }} apply -f {{ dr_dir }}/writable/storageclasses.yaml
   register: demo_wsnap_sc_applied
   changed_when: "'created' in demo_wsnap_sc_applied.stdout"
   when: demo_wsnap_sc_name not in (demo_wsnap_scs.resources | map(attribute='metadata.name') | list)
@@ -29,7 +29,7 @@
 
 - name: Apply the VolumeSnapshotClass
   ansible.builtin.command: >-
-    kubectl --kubeconfig {{ demo_wsnap_site.kubeconfig }} apply -f {{ dr_dir }}/writable/snapclass.yaml
+    {{ demo_wsnap_kubectl }} apply -f {{ dr_dir }}/writable/snapclass.yaml
   register: demo_wsnap_vsc_applied
   changed_when: "'created' in demo_wsnap_vsc_applied.stdout"
   when: demo_wsnap_create_snapclass | bool
