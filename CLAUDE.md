@@ -39,5 +39,7 @@ uv run ansible-inventory -i inventory/k3s --host mgmt_vm --playbook-dir .       
 - Run superpowers:verification-before-completion before saying "done".
 
 ## Status
-Lint, syntax, golden test and the `common` Molecule scenario pass. Nothing has run against real clusters or arrays:
-dry-run before any customer demo.
+Lint, syntax, golden test, offline `tests/test_writable_snap_*.yml` and the `common` Molecule scenario pass. Nothing has run
+against real clusters, arrays or PPDM: dry-run before any customer demo. `roles/demo_wsnap` (writable snapshots behind PPDM
+backups) is an experiment: see `docs/WRITABLE_SNAPSHOT_DEMO.md` and its design spec for what is still unverified.
+Vendor PDFs and OpenAPI specs (`docs/references`, `docs/openapi`) are versioned; `test_writable_snap_endpoints` reads them.
