@@ -1,5 +1,5 @@
 ---
-# Every method+path that tasks/ppdm_api.yml, ppdm_login.yml, ppdm_register.yml and ppdm_activity.yml call must exist in the PPDM 20.3 OpenAPI; the server port must match.
+# Every method+path the role sends with the fjacquet.ppdm.api module (ppdm_api.yml; the other PPDM calls go through dedicated modules) must exist in the PPDM 20.3 OpenAPI; the server port must match.
 - name: PPDM endpoints used by the role exist in the 20.3 OpenAPI
   hosts: localhost
   connection: local
@@ -9,16 +9,13 @@
     _spec2: "{{ lookup('ansible.builtin.file', playbook_dir + '/../docs/openapi/21202-20.3.0.json') | from_json }}"
     _src: >-
       {{ lookup('ansible.builtin.file', playbook_dir + '/../roles/demo_wsnap/tasks/ppdm_api.yml') }}
-      {{ lookup('ansible.builtin.file', playbook_dir + '/../roles/demo_wsnap/tasks/ppdm_activity.yml') }}
-      {{ lookup('ansible.builtin.file', playbook_dir + '/../roles/demo_wsnap/tasks/ppdm_login.yml') }}
-      {{ lookup('ansible.builtin.file', playbook_dir + '/../roles/demo_wsnap/tasks/ppdm_register.yml') }}
     _calls: >-
-      {{ _src | regex_findall('method: (\w+)\s+url: "[^"]*?(/api/v[23]/[^"?]*)') }}
+      {{ _src | regex_findall('method: (\w+)\s+path: (/api/v[23]/\S+)') }}
   tasks:
     - name: The role calls the expected operations
       ansible.builtin.assert:
-        that: _calls | length >= 17
-        fail_msg: "The PPDM task files call {{ _calls | length }} endpoint(s), expected at least 17 (login, clusters, policies, protections, activities, credentials, certificates, inventory, discoveries, assets, storage systems, assignments)."
+        that: _calls | length >= 1
+        fail_msg: "The PPDM task files call {{ _calls | length }} endpoint(s), expected at least 1 (the policy run)."
         quiet: true
 
     - name: Each call is a documented operation

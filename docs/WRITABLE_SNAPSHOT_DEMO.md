@@ -138,4 +138,4 @@ ansible-playbook -i inventory/openshift writable_snapshot_demo.yml --tags cleanu
 
 Run it on both inventories (`inventory/k3s`, `inventory/openshift`). Rendered manifests and `timeline.mmd` are under `~/dr/writable/`.
 The lab values (PPDM host, policy name, Data Domain name, Kubernetes API FQDN, RBAC directory) are placeholders in
-`inventory/<track>/group_vars/all/platform.yml`: replace them for each lab. The registration bodies follow the PPDM 20.3 OpenAPI and bottkars; they have not run against a PPDM yet.
+`inventory/<track>/group_vars/all/platform.yml`: replace them for each lab. The registration calls use the `fjacquet.ppdm` collection (needs `ansible-galaxy collection install -r requirements.yml`); its write modules for these calls are not live-validated upstream and they have not run against a PPDM yet.

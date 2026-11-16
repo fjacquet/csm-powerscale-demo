@@ -35,5 +35,5 @@ ansible-playbook -i inventory/openshift writable_snapshot_demo.yml --tags ppdm,e
 ## Behavior
 
 Idempotency: StorageClasses and ConfigMaps are applied only when missing or changed; the scenario recreates its objects each run.
-Check mode: not supported (the role runs `kubectl` and reads the arrays). Rollback: `--tags cleanup`. Provenance: the REST login flow is
-adapted from https://github.com/bottkars/ansible_ppdm (commit f66c9fa7246c2b9c1e59140213c41adc3e163bdb). License: Apache-2.0. Author: Fred Jacquet.
+Check mode: not supported (the role runs `kubectl` and reads the arrays). Rollback: `--tags cleanup`. Provenance: PPDM calls use the `fjacquet.ppdm` collection
+(https://github.com/fjacquet/ansible-ppdm, in `requirements.yml`); the workflow follows https://github.com/bottkars/ansible_ppdm. License: Apache-2.0. Author: Fred Jacquet.

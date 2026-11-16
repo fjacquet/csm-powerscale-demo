@@ -69,7 +69,7 @@
     - name: Structural fixes in task files and templates
       ansible.builtin.assert:
         that:
-          - "'.json.content[0]' in _reg and 'type=HOST' in _reg"          # 1
+          - "'accept_any_certificate' in _reg and 'fjacquet.ppdm.certificate' in _reg"  # 1
           - "'/writable' in _reg and 'state: directory' in _reg"  # 2
           - "'state: directory' in _evi"                                  # 2
           - "'is not failed' not in _pre"                                 # 3

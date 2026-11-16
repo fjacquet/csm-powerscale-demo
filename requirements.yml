@@ -4,3 +4,5 @@ collections:
     version: ">=6.0.0"
   - name: dellemc.powerscale
     version: ">=3.11.0"
+  - name: fjacquet.ppdm
+    version: ">=1.0.0"

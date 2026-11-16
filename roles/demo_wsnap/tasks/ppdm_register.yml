@@ -1,14 +1,18 @@
 ---
 # Registers the Kubernetes cluster in PPDM and creates the protection policy (--tags register; needs -e demo_wsnap_ppdm_automate=true
-# -e confirm_ppdm_changes=yes). Adapted from https://github.com/bottkars/ansible_ppdm (130.1 add K8s, 130.2 policy) at commit
-# f66c9fa7246c2b9c1e59140213c41adc3e163bdb, with the v3 policy body of the PPDM 20.3 OpenAPI (bottkars' body is the older `stages` format).
+# -e confirm_ppdm_changes=yes). Uses the fjacquet.ppdm collection (workflow of bottkars/ansible_ppdm 130.1 add K8s, 130.2 policy; v3 policy body of the PPDM 20.3 OpenAPI).
 # Needs the PPDM RBAC archive (PPDM UI: Downloads > Kubernetes > RBAC) extracted in demo_wsnap_ppdm_rbac_dir. Each step reuses what exists.
-# The request bodies follow the 20.3 OpenAPI and bottkars; they have not run against a PPDM yet. Asset type "KUBERNETES" for the namespace lookup is to confirm.
+# The modules are not validated against a live PPDM upstream for these calls, and this role has not run against one either. Asset type "KUBERNETES" for the namespace lookup is to confirm.
 - name: PPDM registration and policy
   vars:
-    _headers:
-      Authorization: "Bearer {{ demo_wsnap_ppdm_token | default('') }}"
+    _pw: "{{ demo_wsnap_ppdm_password | default(lookup('ansible.builtin.env', 'PPDM_PASSWORD', default='')) }}"
     _cred_name: "ppdm-discovery-{{ demo_wsnap_k8s_api_fqdn }}"
+  module_defaults:
+    group/fjacquet.ppdm.ppdm:
+      hostname: "{{ demo_wsnap_ppdm_host }}"
+      username: "{{ demo_wsnap_ppdm_user }}"
+      password: "{{ _pw }}"
+      validate_certs: "{{ not (skip_cert_validation | bool) }}"
   block:
     - name: Require the flag, the confirmation and the lab inputs
       ansible.builtin.assert:
@@ -74,203 +78,84 @@
       delay: 3
       until: demo_wsnap_sa_token.stdout | length > 0
 
-    - name: Log in to PPDM
-      ansible.builtin.include_tasks: ppdm_login.yml
-
-    - name: Look for the Kubernetes credential
-      ansible.builtin.uri:
-        method: GET
-        url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v2/credentials?filter=name%20eq%20%22{{ _cred_name | urlencode }}%22%20and%20type%20eq%20%22KUBERNETES%22"
-        headers: "{{ _headers }}"
-        validate_certs: "{{ not (skip_cert_validation | bool) }}"
-        return_content: true
-      register: demo_wsnap_cred_found
+    - name: Ensure the Kubernetes credential from the service account token
+      fjacquet.ppdm.credential:
+        name: "{{ _cred_name }}"
+        type: KUBERNETES
+        method: TOKEN
+        cred_username: "{{ _cred_name }}"
+        cred_password: "{{ demo_wsnap_sa_token.stdout | b64decode }}"
+      register: demo_wsnap_cred
       no_log: true
 
-    - name: Create the Kubernetes credential from the service account token
-      ansible.builtin.uri:
-        method: POST
-        url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v2/credentials"
-        headers: "{{ _headers }}"
-        body_format: json
-        body:
-          method: TOKEN
-          name: "{{ _cred_name }}"
-          type: KUBERNETES
-          username: "{{ _cred_name }}"
-          password: "{{ demo_wsnap_sa_token.stdout | b64decode }}"
-        status_code: [200, 201, 202]
-        validate_certs: "{{ not (skip_cert_validation | bool) }}"
-        return_content: true
-      register: demo_wsnap_cred_created
-      no_log: true
-      when: demo_wsnap_cred_found.json.content | length == 0
+    # Lab behaviour kept: the certificate PPDM fetches from the API server is trusted as presented (the old code did the same).
+    # shortcut: no fingerprint pin, add one (fingerprint:) for a customer environment.
+    - name: Trust the certificate of the Kubernetes API server
+      fjacquet.ppdm.certificate:
+        host: "{{ demo_wsnap_k8s_api_fqdn }}"
+        host_port: "{{ demo_wsnap_k8s_api_port | int }}"
+        accept_any_certificate: true
 
-    - name: Remember the credential id
-      ansible.builtin.set_fact:
-        demo_wsnap_cred_id: "{{ demo_wsnap_cred_found.json.content[0].id if demo_wsnap_cred_found.json.content | length > 0 else demo_wsnap_cred_created.json.id }}"
-
-    - name: Get the certificate of the Kubernetes API server
-      ansible.builtin.uri:
-        method: GET
-        url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v2/certificates?host={{ demo_wsnap_k8s_api_fqdn }}&port={{ demo_wsnap_k8s_api_port }}&type=HOST"
-        headers: "{{ _headers }}"
-        validate_certs: "{{ not (skip_cert_validation | bool) }}"
-        return_content: true
-      register: demo_wsnap_cert_list
-      no_log: true
-
-    - name: Assert PPDM returned the certificate of the API server
-      ansible.builtin.assert:
-        that: demo_wsnap_cert_list.json.content | length > 0
-        fail_msg: "PPDM could not fetch the certificate of {{ demo_wsnap_k8s_api_fqdn }}:{{ demo_wsnap_k8s_api_port }} (is the API server reachable from PPDM?)."
-        quiet: true
-
-    - name: Keep the certificate
-      ansible.builtin.set_fact:
-        demo_wsnap_cert: "{{ demo_wsnap_cert_list.json.content[0] }}"
-      no_log: true
-
-    - name: Accept the certificate
-      ansible.builtin.uri:
-        method: PUT
-        url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v2/certificates/{{ demo_wsnap_cert.id }}"
-        headers: "{{ _headers }}"
-        body_format: json
-        body: "{{ demo_wsnap_cert | combine({'state': 'ACCEPTED'}) }}"
-        status_code: [200, 202]
-        validate_certs: "{{ not (skip_cert_validation | bool) }}"
-      no_log: true
-      when: demo_wsnap_cert.state | default('') != 'ACCEPTED'
-
-    - name: Look for the Kubernetes asset source
-      ansible.builtin.uri:
-        method: GET
-        url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v2/inventory-sources?filter=address%20eq%20%22{{ demo_wsnap_k8s_api_fqdn | urlencode }}%22%20and%20type%20eq%20%22KUBERNETES%22"
-        headers: "{{ _headers }}"
-        validate_certs: "{{ not (skip_cert_validation | bool) }}"
-        return_content: true
-      register: demo_wsnap_source_found
-      no_log: true
-
-    - name: Add the Kubernetes cluster as an asset source
-      ansible.builtin.uri:
-        method: POST
-        url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v2/inventory-sources"
-        headers: "{{ _headers }}"
-        body_format: json
-        body:
-          name: "{{ demo_wsnap_k8s_api_fqdn }}"
-          type: KUBERNETES
+    - name: Ensure the Kubernetes cluster as an asset source
+      fjacquet.ppdm.inventory_source:
+        name: "{{ demo_wsnap_k8s_api_fqdn }}"
+        type: KUBERNETES
+        address: "{{ demo_wsnap_k8s_api_fqdn }}"
+        source_port: "{{ demo_wsnap_k8s_api_port | int }}"
+        credential_id: "{{ demo_wsnap_cred.credential.id }}"
+        config:
           vendor: KUBERNETES
-          address: "{{ demo_wsnap_k8s_api_fqdn }}"
-          port: "{{ demo_wsnap_k8s_api_port | int }}"
-          credentials:
-            id: "{{ demo_wsnap_cred_id }}"
-        status_code: [200, 201, 202]
-        validate_certs: "{{ not (skip_cert_validation | bool) }}"
-        return_content: true
-      register: demo_wsnap_source_created
-      no_log: true
-      when: demo_wsnap_source_found.json.content | length == 0
 
-    - name: Remember the asset source id
-      ansible.builtin.set_fact:
-        demo_wsnap_source_id: "{{ demo_wsnap_source_found.json.content[0].id if demo_wsnap_source_found.json.content | length > 0 else demo_wsnap_source_created.json.id }}"
-
-    - name: Start a discovery of the cluster
-      ansible.builtin.uri:
-        method: POST
-        url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v2/discoveries"
-        headers: "{{ _headers }}"
-        body_format: json
-        body:
-          start: "/inventory-sources/{{ demo_wsnap_source_id }}"
-          level: DataCopies
-        status_code: [200, 202]
-        validate_certs: "{{ not (skip_cert_validation | bool) }}"
-      no_log: true
+    - name: Discover the cluster
+      fjacquet.ppdm.discovery:
+        inventory_source: "{{ demo_wsnap_k8s_api_fqdn }}"
+        level: DataCopies
+        ignore_running: true
 
     - name: Wait for the protected namespace to be discovered
-      ansible.builtin.uri:
-        method: GET
-        url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v2/assets?filter=name%20eq%20%22{{ demo_wsnap_protected_ns | urlencode }}%22%20and%20type%20eq%20%22KUBERNETES%22"
-        headers: "{{ _headers }}"
-        validate_certs: "{{ not (skip_cert_validation | bool) }}"
-        return_content: true
+      fjacquet.ppdm.asset_info:
+        name: "{{ demo_wsnap_protected_ns }}"
+        asset_type: KUBERNETES
       register: demo_wsnap_assets
-      no_log: true
       retries: 20
       delay: 15
-      until: demo_wsnap_assets.json.content | length > 0
+      until: demo_wsnap_assets.assets | length > 0
 
     - name: Find the Data Domain storage system
-      ansible.builtin.uri:
-        method: GET
-        url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v2/storage-systems?filter=name%20eq%20%22{{ demo_wsnap_ppdm_datadomain | urlencode }}%22"
-        headers: "{{ _headers }}"
-        validate_certs: "{{ not (skip_cert_validation | bool) }}"
-        return_content: true
+      fjacquet.ppdm.storage_system_info:
+        name: "{{ demo_wsnap_ppdm_datadomain }}"
       register: demo_wsnap_storage
-      no_log: true
 
     - name: Assert the Data Domain is declared in PPDM
       ansible.builtin.assert:
-        that: demo_wsnap_storage.json.content | length == 1
+        that: demo_wsnap_storage.storage_systems | length == 1
         fail_msg: "Data Domain '{{ demo_wsnap_ppdm_datadomain }}' is not a storage system of this PPDM: add it in PPDM first."
         quiet: true
 
-    - name: Look for the protection policy
-      ansible.builtin.uri:
-        method: GET
-        url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v3/protection-policies?filter=name%20eq%20%22{{ demo_wsnap_ppdm_policy | urlencode }}%22"
-        headers: "{{ _headers }}"
-        validate_certs: "{{ not (skip_cert_validation | bool) }}"
-        return_content: true
-      register: demo_wsnap_policy_found
-      no_log: true
-
-    - name: Create the Kubernetes protection policy (on demand, full backup, one day of retention)
-      ansible.builtin.uri:
-        method: POST
-        url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v3/protection-policies"
-        headers: "{{ _headers }}"
-        body_format: json
-        body:
-          assetType: KUBERNETES
-          name: "{{ demo_wsnap_ppdm_policy }}"
-          description: Writable snapshot demo policy
-          purpose: CENTRALIZED
-          objectives:
-            - type: BACKUP
-              operations:
-                - backupLevel: FULL
-                  triggerType: ON_DEMAND
-              retentions:
-                - time:
-                    - type: RETENTION
-                      unitType: DAY
-                      unitValue: 1
-              target:
-                storageTargetId: "{{ demo_wsnap_storage.json.content[0].id }}"
-        status_code: [200, 201, 202]
-        validate_certs: "{{ not (skip_cert_validation | bool) }}"
-        return_content: true
-      register: demo_wsnap_policy_created
-      no_log: true
-      when: demo_wsnap_policy_found.json.content | length == 0
-
-    - name: Remember the policy id
-      ansible.builtin.set_fact:
-        demo_wsnap_policy_id: "{{ demo_wsnap_policy_found.json.content[0].id if demo_wsnap_policy_found.json.content | length > 0 else demo_wsnap_policy_created.json.id }}"
+    # PPDM 20.3 wants a UUID id on each objective, operation and retention: derived from the policy name, so a re-run sends the same ids.
+    - name: Ensure the Kubernetes protection policy (on demand, full backup, one day of retention)
+      fjacquet.ppdm.protection_policy:
+        name: "{{ demo_wsnap_ppdm_policy }}"
+        asset_type: KUBERNETES
+        description: Writable snapshot demo policy
+        purpose: CENTRALIZED
+        objectives:
+          - id: "{{ (demo_wsnap_ppdm_policy ~ '-objective') | ansible.builtin.to_uuid }}"
+            type: BACKUP
+            operations:
+              - id: "{{ (demo_wsnap_ppdm_policy ~ '-operation') | ansible.builtin.to_uuid }}"
+                backupLevel: FULL
+                triggerType: ON_DEMAND
+            retentions:
+              - id: "{{ (demo_wsnap_ppdm_policy ~ '-retention') | ansible.builtin.to_uuid }}"
+                time:
+                  - type: RETENTION
+                    unitType: DAY
+                    unitValue: 1
+            target:
+              storageTargetId: "{{ demo_wsnap_storage.storage_systems[0].id }}"
 
     - name: Assign the namespace to the policy
-      ansible.builtin.uri:
-        method: POST
-        url: "https://{{ demo_wsnap_ppdm_host }}:8443/api/v2/protection-policies/{{ demo_wsnap_policy_id }}/asset-assignments"
-        headers: "{{ _headers }}"
-        body_format: json
-        body: "{{ demo_wsnap_assets.json.content | map(attribute='id') | list }}"
-        status_code: [200, 201, 202, 204]
-        validate_certs: "{{ not (skip_cert_validation | bool) }}"
-      no_log: true
+      fjacquet.ppdm.protection_policy_assets:
+        policy: "{{ demo_wsnap_ppdm_policy }}"
+        asset_ids: "{{ demo_wsnap_assets.assets | map(attribute='id') | list }}"
