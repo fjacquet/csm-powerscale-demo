@@ -122,9 +122,35 @@ state, sequence and decision diagrams, is in [WRITABLE_SNAPSHOT_DEMO.md](WRITABL
 - `--tags cleanup -e confirm_writable_cleanup=yes` removes the scenario.
 - Needs OneFS 9.13+, Kubernetes 1.34+, CSM 1.18, PPDM 20.3. Not run on real clusters, arrays or PPDM yet.
 
+### Suspend, resume and check replication on the arrays
+
+`replication_maintenance.yml` runs `repctl --rg <rg> exec -a suspend|resume|sync` on every protected namespace (or `only_namespaces`).
+On PowerScale, suspend disables the SyncIQ policy on the source array, resume enables it again, sync starts a SyncIQ job.
+
+```bash
+uv run ansible-playbook replication_maintenance.yml -e dr_maint_action=sync
+uv run ansible-playbook replication_maintenance.yml -e dr_maint_action=suspend -e confirm_suspend=yes   # RPO grows until resume
+uv run ansible-playbook replication_maintenance.yml -e dr_maint_action=resume
+```
+
+- While suspended, writers keep writing on the primary but nothing reaches ps2, not even the scheduled copies. Resume, then run
+  `sync` to catch up now instead of waiting for the next interval. Run one action at a time: CSM rejects a new action while one is running.
+- Do not leave replication suspended before a planned failover: the final sync needs the policy enabled.
+- Array-side check (read-only, on the arrays; trust the array if `kubectl get rg` disagrees):
+
+| When | Array | Command | Expect |
+|---|---|---|---|
+| any time | ps1 | `isi sync policies list`, then `isi sync policies view <policy>` | Enabled: Yes, Last Job State finished |
+| after sync | ps1 | `isi sync jobs list`, `isi sync reports list` | a job while it runs, then a new finished report |
+| after suspend | ps1 | `isi sync policies view <policy>` | Enabled: No, no new reports |
+| any time | ps2 | `isi sync target list`, `isi sync target view <policy>` | Last Job State finished; writes disabled until a failover |
+
+  The policy name is the one `isi sync policies list` shows (CSM names it after the volume group prefix, the target array and the RPO).
+  `isi sync reports list` can be filtered by policy: confirm the flag with `isi sync reports list --help` on your OneFS version.
+
 ## 5. Safety guards
 
-- Failover, failback, reprotect, recovery and cleanup need an explicit `-e confirm_...=yes`; `site.yml` never calls them.
+- Failover, failback, reprotect, recovery, cleanup and replication suspend need an explicit `-e confirm_...=yes`; `site.yml` never calls them.
 - `site.yml` refuses to run while `~/dr/state` lists a protected namespace as `secondary-active` (state is per namespace;
   override: `-e allow_rerun_after_failover=true`). `cleanup.yml` clears the state, the RG map and the last-write files.
 - `rg-map.txt` (namespace to RG) is written under `~/dr` and copied to `artifacts/` for use when the primary is gone.

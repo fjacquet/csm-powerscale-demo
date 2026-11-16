@@ -20,6 +20,14 @@ argument_specs:
         description: Extra args for repctl create pvc (option B)
         default: --clusters secondary
         required: false
+      dr_maint_action:
+        type: str
+        description: Replication maintenance action for maintenance.yml
+        choices:
+          - suspend
+          - resume
+          - sync
+        required: false
       failback_mode:
         type: str
         description: keep or discard writes made on secondary

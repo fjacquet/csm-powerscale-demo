@@ -1,0 +1,21 @@
+---
+# Replication maintenance on every selected RG: suspend, resume or sync (repctl exec -a, CSM administrator guide, "Maintenance Actions").
+# On PowerScale: suspend disables the SyncIQ policy on the source array, resume enables it, sync starts a SyncIQ job. Needs dr_maint_action.
+- name: Include the map
+  ansible.builtin.include_tasks: load_map.yml
+
+- name: "Run the replication action on each RG - {{ dr_maint_action }}"
+  ansible.builtin.command: "repctl --rg {{ item[1] }} exec -a {{ dr_maint_action }}"
+  loop: "{{ dr_ops_selected }}"
+  loop_control:
+    label: "{{ item[0] }}: {{ item[1] }}"
+  changed_when: true
+
+- name: Show the RG link state
+  ansible.builtin.command: repctl get rg
+  register: dr_ops_after
+  changed_when: false
+
+- name: Print the RG link state
+  ansible.builtin.debug:
+    var: dr_ops_after.stdout_lines

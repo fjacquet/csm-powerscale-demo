@@ -1,0 +1,22 @@
+---
+# Suspend, resume or force a sync of replication (every protected namespace, or only_namespaces). Usage:
+#   ansible-playbook replication_maintenance.yml -e dr_maint_action=sync
+#   ansible-playbook replication_maintenance.yml -e dr_maint_action=suspend -e confirm_suspend=yes
+#   ansible-playbook replication_maintenance.yml -e dr_maint_action=resume
+# Suspend stops all SyncIQ copies: the RPO grows until resume. Not called by site.yml.
+- name: Replication maintenance
+  hosts: mgmt
+  gather_facts: false
+  pre_tasks:
+    - name: Require a known action, and confirmation for suspend
+      ansible.builtin.assert:
+        that:
+          - dr_maint_action | default('') in ['suspend', 'resume', 'sync']
+          - dr_maint_action | default('') != 'suspend' or confirm_suspend | default('no') == 'yes'
+        fail_msg: "Pass -e dr_maint_action=suspend|resume|sync. Suspend stops replication (the copy on secondary falls behind) and also needs -e confirm_suspend=yes."
+        quiet: true
+  tasks:
+    - name: Apply the action
+      ansible.builtin.import_role:
+        name: dr_ops
+        tasks_from: maintenance.yml

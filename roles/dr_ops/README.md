@@ -1,6 +1,6 @@
 # dr_ops
 
-D3 to D6: planned and unplanned failover, bring-up, reprotect, primary recovery, failback and the data check. Use with tasks_from.
+D3 to D6: planned and unplanned failover, bring-up, reprotect, primary recovery, failback, the data check and replication maintenance (suspend, resume, sync). Use with tasks_from.
 
 ## Requirements
 
@@ -14,6 +14,7 @@ Runs on the management VM. Shared inputs (`sites`, `arrays`, `platform`, namespa
 | `dr_namespaces` | list | `` | Namespaces to act on (default app_namespaces) |
 | `repctl_wait_args` | str | `--wait` | Flag making repctl wait for completion |
 | `repctl_create_pvc_args` | str | `--clusters secondary` | Extra args for repctl create pvc (option B) |
+| `dr_maint_action` | str | `` | `suspend`, `resume` or `sync` for `tasks_from: maintenance.yml` (`replication_maintenance.yml`) |
 | `failback_mode` | str | `keep` | keep or discard writes made on secondary |
 | `demo_data_check` | bool | `True` | Capture and verify the last write per namespace (a PostgreSQL marker row for namespaces in `demo_wiki_namespaces`) |
 
